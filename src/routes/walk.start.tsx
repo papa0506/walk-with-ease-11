@@ -32,10 +32,11 @@ function WalkStart() {
       }
     >
       <StatusCard
-        tone="info"
+        tone="warning"
         icon={<MapPin aria-hidden="true" size={28} />}
-        title="경로를 선택해 주세요"
-        description="선택 후 아래 ‘이 설정으로 시작’ 버튼을 눌러 주세요."
+        eyebrow="시안 안내"
+        title="표시된 경로/거리 정보는 예시입니다"
+        description="검증된 남산 데이터로 교체되기 전까지는 실제 안전 안내로 사용하지 마세요."
       />
 
       <fieldset className="space-y-3">

@@ -31,6 +31,15 @@ function WalkActive() {
         </div>
       }
     >
+      {/* 시안 안내 */}
+      <StatusCard
+        tone="warning"
+        icon={<AlertTriangle aria-hidden="true" size={28} />}
+        eyebrow="시안 안내"
+        title="아래 안내는 모두 예시 데이터입니다"
+        description="실제 GPS, 위치 공유, 위험 데이터 연동은 다음 단계에서 추가됩니다."
+      />
+
       {/* 음성 안내 상태 */}
       <StatusCard
         tone="info"
@@ -44,7 +53,7 @@ function WalkActive() {
           className="rounded-xl border-2 px-3 py-2 text-base font-bold"
           style={{ borderColor: "currentColor" }}
         >
-          마지막 안내: 5초 전
+          마지막 안내: 5초 전 (예시)
         </p>
       </StatusCard>
 

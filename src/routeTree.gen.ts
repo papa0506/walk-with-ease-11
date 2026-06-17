@@ -9,10 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WalkIndexRouteImport } from './routes/walk.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as WalkStartRouteImport } from './routes/walk.start'
+import { Route as AuthPendingRouteImport } from './routes/auth.pending'
 
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -23,44 +31,85 @@ const WalkIndexRoute = WalkIndexRouteImport.update({
   path: '/walk/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WalkStartRoute = WalkStartRouteImport.update({
   id: '/walk/start',
   path: '/walk/start',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthPendingRoute = AuthPendingRouteImport.update({
+  id: '/pending',
+  path: '/pending',
+  getParentRoute: () => AuthRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRouteWithChildren
+  '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
+  '/admin/': typeof AdminIndexRoute
   '/walk/': typeof WalkIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRouteWithChildren
+  '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
+  '/admin': typeof AdminIndexRoute
   '/walk': typeof WalkIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRouteWithChildren
+  '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
+  '/admin/': typeof AdminIndexRoute
   '/walk/': typeof WalkIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/walk/start' | '/walk/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/auth/pending'
+    | '/walk/start'
+    | '/admin/'
+    | '/walk/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/walk/start' | '/walk'
-  id: '__root__' | '/' | '/walk/start' | '/walk/'
+  to: '/' | '/auth' | '/auth/pending' | '/walk/start' | '/admin' | '/walk'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/auth/pending'
+    | '/walk/start'
+    | '/admin/'
+    | '/walk/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRouteWithChildren
   WalkStartRoute: typeof WalkStartRoute
+  AdminIndexRoute: typeof AdminIndexRoute
   WalkIndexRoute: typeof WalkIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -75,6 +124,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WalkIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/walk/start': {
       id: '/walk/start'
       path: '/walk/start'
@@ -82,12 +138,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WalkStartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/pending': {
+      id: '/auth/pending'
+      path: '/pending'
+      fullPath: '/auth/pending'
+      preLoaderRoute: typeof AuthPendingRouteImport
+      parentRoute: typeof AuthRoute
+    }
   }
 }
 
+interface AuthRouteChildren {
+  AuthPendingRoute: typeof AuthPendingRoute
+}
+
+const AuthRouteChildren: AuthRouteChildren = {
+  AuthPendingRoute: AuthPendingRoute,
+}
+
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRouteWithChildren,
   WalkStartRoute: WalkStartRoute,
+  AdminIndexRoute: AdminIndexRoute,
   WalkIndexRoute: WalkIndexRoute,
 }
 export const routeTree = rootRouteImport
