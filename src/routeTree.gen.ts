@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WalkIndexRouteImport } from './routes/walk.index'
+import { Route as WalkStartRouteImport } from './routes/walk.start'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WalkIndexRoute = WalkIndexRouteImport.update({
+  id: '/walk/',
+  path: '/walk/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WalkStartRoute = WalkStartRouteImport.update({
+  id: '/walk/start',
+  path: '/walk/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/walk/start': typeof WalkStartRoute
+  '/walk/': typeof WalkIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/walk/start': typeof WalkStartRoute
+  '/walk': typeof WalkIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/walk/start': typeof WalkStartRoute
+  '/walk/': typeof WalkIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/walk/start' | '/walk/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/walk/start' | '/walk'
+  id: '__root__' | '/' | '/walk/start' | '/walk/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  WalkStartRoute: typeof WalkStartRoute
+  WalkIndexRoute: typeof WalkIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,22 +68,28 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/walk/': {
+      id: '/walk/'
+      path: '/walk'
+      fullPath: '/walk/'
+      preLoaderRoute: typeof WalkIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/walk/start': {
+      id: '/walk/start'
+      path: '/walk/start'
+      fullPath: '/walk/start'
+      preLoaderRoute: typeof WalkStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  WalkStartRoute: WalkStartRoute,
+  WalkIndexRoute: WalkIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
