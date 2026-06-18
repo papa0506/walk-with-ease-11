@@ -8,7 +8,7 @@ import { z } from "zod";
 import { AppShell } from "@/components/walk/AppShell";
 import { StatusCard } from "@/components/walk/StatusCard";
 import { useMe } from "@/hooks/useMe";
-import { endWalk } from "@/lib/namsan.functions";
+import { endWalk, nearbyHazards, hazardFeedback } from "@/lib/namsan.functions";
 
 const search = z.object({ walkId: z.string().optional() });
 
