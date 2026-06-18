@@ -25,13 +25,17 @@ function WalkScreen() {
   const { walkId } = Route.useSearch();
   const navigate = useNavigate();
   const endFn = useServerFn(endWalk);
+  const nearbyFn = useServerFn(nearbyHazards);
+  const feedbackFn = useServerFn(hazardFeedback);
 
   const [permission, setPermission] = useState<"idle" | "requested" | "granted" | "denied">("idle");
   const [coords, setCoords] = useState<Coords | null>(null);
   const [voiceOn, setVoiceOn] = useState(false);
   const [meters, setMeters] = useState(0);
+  const [hazards, setHazards] = useState<HazardLite[]>([]);
   const watchId = useRef<number | null>(null);
   const lastPos = useRef<Coords | null>(null);
+  const lastHazardCheck = useRef<number>(0);
 
   function speak(text: string) {
     if (!voiceOn) return;
