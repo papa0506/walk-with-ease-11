@@ -157,36 +157,63 @@ export type Database = {
       }
       hazards: {
         Row: {
+          accuracy: number | null
+          active: boolean
+          cleared_at: string | null
           created_at: string
           created_by: string | null
           description: string | null
+          expires_at: string | null
           id: string
+          label: string | null
           lat: number | null
           lng: number | null
+          reporter_type: Database["public"]["Enums"]["hazard_reporter"]
           route_meter: number | null
+          side: Database["public"]["Enums"]["side_dir"]
+          subtype: string | null
           type: string | null
+          verification_status: Database["public"]["Enums"]["hazard_verification"]
           verified: boolean
         }
         Insert: {
+          accuracy?: number | null
+          active?: boolean
+          cleared_at?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          expires_at?: string | null
           id?: string
+          label?: string | null
           lat?: number | null
           lng?: number | null
+          reporter_type?: Database["public"]["Enums"]["hazard_reporter"]
           route_meter?: number | null
+          side?: Database["public"]["Enums"]["side_dir"]
+          subtype?: string | null
           type?: string | null
+          verification_status?: Database["public"]["Enums"]["hazard_verification"]
           verified?: boolean
         }
         Update: {
+          accuracy?: number | null
+          active?: boolean
+          cleared_at?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          expires_at?: string | null
           id?: string
+          label?: string | null
           lat?: number | null
           lng?: number | null
+          reporter_type?: Database["public"]["Enums"]["hazard_reporter"]
           route_meter?: number | null
+          side?: Database["public"]["Enums"]["side_dir"]
+          subtype?: string | null
           type?: string | null
+          verification_status?: Database["public"]["Enums"]["hazard_verification"]
           verified?: boolean
         }
         Relationships: [
@@ -205,12 +232,15 @@ export type Database = {
           announcement: string | null
           created_at: string
           created_by: string | null
+          custom_name: string | null
           direction_hint: string | null
           id: string
           lat: number | null
           lng: number | null
           name: string
           route_meter: number | null
+          side: Database["public"]["Enums"]["side_dir"]
+          survey_direction: Database["public"]["Enums"]["survey_dir"]
           type: string | null
           verified: boolean
         }
@@ -219,12 +249,15 @@ export type Database = {
           announcement?: string | null
           created_at?: string
           created_by?: string | null
+          custom_name?: string | null
           direction_hint?: string | null
           id?: string
           lat?: number | null
           lng?: number | null
           name: string
           route_meter?: number | null
+          side?: Database["public"]["Enums"]["side_dir"]
+          survey_direction?: Database["public"]["Enums"]["survey_dir"]
           type?: string | null
           verified?: boolean
         }
@@ -233,12 +266,15 @@ export type Database = {
           announcement?: string | null
           created_at?: string
           created_by?: string | null
+          custom_name?: string | null
           direction_hint?: string | null
           id?: string
           lat?: number | null
           lng?: number | null
           name?: string
           route_meter?: number | null
+          side?: Database["public"]["Enums"]["side_dir"]
+          survey_direction?: Database["public"]["Enums"]["survey_dir"]
           type?: string | null
           verified?: boolean
         }
@@ -262,6 +298,7 @@ export type Database = {
           measured_at: string
           measured_by: string | null
           meter: number
+          survey_direction: Database["public"]["Enums"]["survey_dir"]
           verification_status: Database["public"]["Enums"]["milestone_verification"]
           verified: boolean
         }
@@ -274,6 +311,7 @@ export type Database = {
           measured_at?: string
           measured_by?: string | null
           meter: number
+          survey_direction?: Database["public"]["Enums"]["survey_dir"]
           verification_status?: Database["public"]["Enums"]["milestone_verification"]
           verified?: boolean
         }
@@ -286,6 +324,7 @@ export type Database = {
           measured_at?: string
           measured_by?: string | null
           meter?: number
+          survey_direction?: Database["public"]["Enums"]["survey_dir"]
           verification_status?: Database["public"]["Enums"]["milestone_verification"]
           verified?: boolean
         }
@@ -405,8 +444,16 @@ export type Database = {
     }
     Enums: {
       handoff_status: "CREATED" | "SENT" | "DONE" | "CANCELLED"
+      hazard_reporter: "ANONYMOUS" | "USER" | "ADMIN"
+      hazard_verification:
+        | "USER_REPORTED"
+        | "ADMIN_CONFIRMED"
+        | "CLEARED"
+        | "EXPIRED"
       milestone_verification: "NONE" | "FIELD_MEASURED" | "VERIFIED"
       share_mode: "PRIVATE" | "FRIENDS" | "PUBLIC"
+      side_dir: "LEFT" | "RIGHT" | "FRONT" | "BOTH" | "ALL" | "UNKNOWN"
+      survey_dir: "THEATER_TO_CABLECAR" | "CABLECAR_TO_THEATER" | "UNSPEC"
       user_role: "USER" | "ADMIN"
       user_status: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED"
       walk_direction: "CW" | "CCW" | "UNSPEC"
@@ -539,8 +586,17 @@ export const Constants = {
   public: {
     Enums: {
       handoff_status: ["CREATED", "SENT", "DONE", "CANCELLED"],
+      hazard_reporter: ["ANONYMOUS", "USER", "ADMIN"],
+      hazard_verification: [
+        "USER_REPORTED",
+        "ADMIN_CONFIRMED",
+        "CLEARED",
+        "EXPIRED",
+      ],
       milestone_verification: ["NONE", "FIELD_MEASURED", "VERIFIED"],
       share_mode: ["PRIVATE", "FRIENDS", "PUBLIC"],
+      side_dir: ["LEFT", "RIGHT", "FRONT", "BOTH", "ALL", "UNKNOWN"],
+      survey_dir: ["THEATER_TO_CABLECAR", "CABLECAR_TO_THEATER", "UNSPEC"],
       user_role: ["USER", "ADMIN"],
       user_status: ["PENDING", "APPROVED", "REJECTED", "SUSPENDED"],
       walk_direction: ["CW", "CCW", "UNSPEC"],
