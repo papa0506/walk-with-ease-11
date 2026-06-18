@@ -368,20 +368,26 @@ export const adminUpdateHazard = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAdmin();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const patch: Record<string, unknown> = {};
+    let q;
     if (data.action === "CONFIRM") {
-      patch.verification_status = "ADMIN_CONFIRMED";
-      patch.verified = true;
+      q = supabaseAdmin.from("hazards").update({
+        verification_status: "ADMIN_CONFIRMED" as const,
+        verified: true,
+      }).eq("id", data.id);
     } else if (data.action === "CLEAR") {
-      patch.active = false;
-      patch.verification_status = "CLEARED";
-      patch.cleared_at = new Date().toISOString();
-    } else if (data.action === "EXTEND") {
+      q = supabaseAdmin.from("hazards").update({
+        active: false,
+        verification_status: "CLEARED" as const,
+        cleared_at: new Date().toISOString(),
+      }).eq("id", data.id);
+    } else {
       const hours = data.extendHours ?? 6;
-      patch.expires_at = new Date(Date.now() + hours * 3600 * 1000).toISOString();
-      patch.active = true;
+      q = supabaseAdmin.from("hazards").update({
+        expires_at: new Date(Date.now() + hours * 3600 * 1000).toISOString(),
+        active: true,
+      }).eq("id", data.id);
     }
-    const { error } = await supabaseAdmin.from("hazards").update(patch).eq("id", data.id);
+    const { error } = await q;
     if (error) throw new Error(error.message);
     return { ok: true };
   });
