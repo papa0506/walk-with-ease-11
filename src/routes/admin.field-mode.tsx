@@ -8,7 +8,7 @@ import { adminSaveMilestone, adminSaveLandmark } from "@/lib/namsan.functions";
 
 export const Route = createFileRoute("/admin/field-mode")({
   head: () => ({ meta: [{ title: "현장 실측 모드 · 관리자" }] }),
-  component: FieldMode;
+  component: FieldMode,
 });
 
 type Dir = "THEATER_TO_CABLECAR" | "CABLECAR_TO_THEATER";
