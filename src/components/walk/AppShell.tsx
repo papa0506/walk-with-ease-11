@@ -6,19 +6,13 @@ interface Props {
   children: ReactNode;
   /** 화면 하단 고정 액션 영역 */
   bottomAction?: ReactNode;
+  /** 헤더 우상단 액션 (예: 로그인 / 로그아웃) */
+  topRight?: ReactNode;
 }
 
-/**
- * 모바일 우선 화면 쉘.
- * - 상단: 큰 페이지 타이틀 (h1, VoiceOver 진입점)
- * - 본문: 카드 중심 콘텐츠
- * - 하단 고정: 주요 액션
- * - 상단에 '비공개 릴리즈 후보' 표시
- */
-export function AppShell({ title, back, children, bottomAction }: Props) {
+export function AppShell({ title, back, children, bottomAction, topRight }: Props) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-background">
-      {/* 릴리즈 단계 표시 — 색상 단독이 아니라 라벨 텍스트로 명시 */}
       <div
         role="note"
         aria-label="비공개 릴리즈 후보 버전"
@@ -37,7 +31,10 @@ export function AppShell({ title, back, children, bottomAction }: Props) {
             ← 뒤로
           </a>
         ) : null}
-        <h1 className="text-3xl font-extrabold tracking-tight">{title}</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-3xl font-extrabold tracking-tight whitespace-pre-line">{title}</h1>
+          {topRight ? <div className="shrink-0 pt-1">{topRight}</div> : null}
+        </div>
       </header>
 
       <main id="main" className="flex-1 space-y-4 px-5 pb-40 pt-2">
