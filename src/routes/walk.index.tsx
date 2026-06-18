@@ -8,7 +8,7 @@ import { z } from "zod";
 import { AppShell } from "@/components/walk/AppShell";
 import { StatusCard } from "@/components/walk/StatusCard";
 import { useMe } from "@/hooks/useMe";
-import { endWalk } from "@/lib/namsan.functions";
+import { endWalk, nearbyHazards, hazardFeedback } from "@/lib/namsan.functions";
 
 const search = z.object({ walkId: z.string().optional() });
 
@@ -19,19 +19,29 @@ export const Route = createFileRoute("/walk/")({
 });
 
 type Coords = { lat: number; lng: number; acc: number; heading: number | null };
+type HazardLite = {
+  id: string; type: string; label: string | null; side: string;
+  description: string | null; lat: number | null; lng: number | null;
+  verified: boolean; verification_status: string; reporter_type: string;
+  expires_at: string | null;
+};
 
 function WalkScreen() {
   const { data: me } = useMe();
   const { walkId } = Route.useSearch();
   const navigate = useNavigate();
   const endFn = useServerFn(endWalk);
+  const nearbyFn = useServerFn(nearbyHazards);
+  const feedbackFn = useServerFn(hazardFeedback);
 
   const [permission, setPermission] = useState<"idle" | "requested" | "granted" | "denied">("idle");
   const [coords, setCoords] = useState<Coords | null>(null);
   const [voiceOn, setVoiceOn] = useState(false);
   const [meters, setMeters] = useState(0);
+  const [hazards, setHazards] = useState<HazardLite[]>([]);
   const watchId = useRef<number | null>(null);
   const lastPos = useRef<Coords | null>(null);
+  const lastHazardCheck = useRef<number>(0);
 
   function speak(text: string) {
     if (!voiceOn) return;
@@ -58,6 +68,14 @@ function WalkScreen() {
           if (d < 50) setMeters((m) => m + d);
         }
         lastPos.current = c;
+        // Poll nearby hazards at most every 20s
+        const now = Date.now();
+        if (now - lastHazardCheck.current > 20_000) {
+          lastHazardCheck.current = now;
+          nearbyFn({ data: { lat: c.lat, lng: c.lng, radiusM: 100 } })
+            .then((rows) => setHazards(rows as HazardLite[]))
+            .catch(() => { /* noop */ });
+        }
       },
       () => setPermission("denied"),
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 },
@@ -165,19 +183,60 @@ function WalkScreen() {
         description={`다음 안내 지점: ${nextAnnouncement} m`}
       />
 
-      <StatusCard
-        tone="warning"
-        icon={<AlertTriangle aria-hidden size={28} />}
-        eyebrow="위험 안내"
-        title="미검증 안전 데이터는 표시하지 않습니다"
-        description="현장 검증된 위험만 안내됩니다. 위험을 직접 신고하려면 아래 버튼을 사용하세요 (다음 단계)."
-      >
-        <button type="button" className="btn-secondary" disabled>
-          위험 신고 (준비 중)
+      <section aria-label="근처 위험 안내" className="space-y-3">
+        <h2 className="text-xl font-extrabold">근처 위험 (100m)</h2>
+        {hazards.length === 0 ? (
+          <StatusCard tone="neutral" icon={<AlertTriangle aria-hidden size={28} />}
+            title="근처에 표시할 위험 제보가 없습니다"
+            description="제보된 위험만 표시됩니다. 관리자 확인 전 제보는 ‘임시 경고’로만 보입니다." />
+        ) : hazards.map((h) => {
+          const adminConfirmed = h.verification_status === "ADMIN_CONFIRMED";
+          const sideText = sideLabel(h.side);
+          return (
+            <article key={h.id} className="status-card space-y-2"
+              style={{ background: adminConfirmed ? "var(--warning)" : "var(--card)", color: adminConfirmed ? "var(--warning-foreground)" : "var(--foreground)" }}>
+              <p className="text-xl font-extrabold">
+                {h.label ?? h.type}
+              </p>
+              <p className="text-base">
+                {sideText}에 제보가 있습니다.
+              </p>
+              <p className="text-sm">
+                {adminConfirmed ? "관리자 확인됨" : "이용자 제보 · 관리자 확인 전 · 임시 경고 · 자동 만료 예정"}
+              </p>
+              {h.description && <p className="text-sm">{h.description}</p>}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button className="btn-secondary min-h-12"
+                  onClick={() => feedbackFn({ data: { id: h.id, vote: "STILL_THERE" } })}>
+                  아직 있어요
+                </button>
+                <button className="btn-secondary min-h-12"
+                  onClick={() => feedbackFn({ data: { id: h.id, vote: "GONE" } })}>
+                  없어졌어요
+                </button>
+              </div>
+            </article>
+          );
+        })}
+        <button type="button" className="btn-secondary"
+          onClick={() => navigate({ to: "/report-hazard" })}
+          aria-label="위험 신고 화면으로 이동">
+          <AlertTriangle aria-hidden size={22} /> 위험 신고하기
         </button>
-      </StatusCard>
+      </section>
     </AppShell>
   );
+}
+
+function sideLabel(side: string): string {
+  switch (side) {
+    case "LEFT": return "진행 방향 왼쪽";
+    case "RIGHT": return "진행 방향 오른쪽";
+    case "FRONT": return "정면";
+    case "BOTH": return "양쪽";
+    case "ALL": return "길 전체";
+    default: return "근처";
+  }
 }
 
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number) {

@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ReportHazardRouteImport } from './routes/report-hazard'
 import { Route as OnetouchRouteImport } from './routes/onetouch'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -17,9 +18,16 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as WalkStartRouteImport } from './routes/walk.start'
 import { Route as AuthPendingRouteImport } from './routes/auth.pending'
 import { Route as AdminMilestonesRouteImport } from './routes/admin.milestones'
+import { Route as AdminHazardsRouteImport } from './routes/admin.hazards'
 import { Route as AdminFieldSurveyRouteImport } from './routes/admin.field-survey'
+import { Route as AdminFieldModeRouteImport } from './routes/admin.field-mode'
 import { Route as AdminEntrancesRouteImport } from './routes/admin.entrances'
 
+const ReportHazardRoute = ReportHazardRouteImport.update({
+  id: '/report-hazard',
+  path: '/report-hazard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OnetouchRoute = OnetouchRouteImport.update({
   id: '/onetouch',
   path: '/onetouch',
@@ -60,9 +68,19 @@ const AdminMilestonesRoute = AdminMilestonesRouteImport.update({
   path: '/admin/milestones',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminHazardsRoute = AdminHazardsRouteImport.update({
+  id: '/admin/hazards',
+  path: '/admin/hazards',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminFieldSurveyRoute = AdminFieldSurveyRouteImport.update({
   id: '/admin/field-survey',
   path: '/admin/field-survey',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminFieldModeRoute = AdminFieldModeRouteImport.update({
+  id: '/admin/field-mode',
+  path: '/admin/field-mode',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminEntrancesRoute = AdminEntrancesRouteImport.update({
@@ -75,8 +93,11 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/onetouch': typeof OnetouchRoute
+  '/report-hazard': typeof ReportHazardRoute
   '/admin/entrances': typeof AdminEntrancesRoute
+  '/admin/field-mode': typeof AdminFieldModeRoute
   '/admin/field-survey': typeof AdminFieldSurveyRoute
+  '/admin/hazards': typeof AdminHazardsRoute
   '/admin/milestones': typeof AdminMilestonesRoute
   '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
@@ -87,8 +108,11 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/onetouch': typeof OnetouchRoute
+  '/report-hazard': typeof ReportHazardRoute
   '/admin/entrances': typeof AdminEntrancesRoute
+  '/admin/field-mode': typeof AdminFieldModeRoute
   '/admin/field-survey': typeof AdminFieldSurveyRoute
+  '/admin/hazards': typeof AdminHazardsRoute
   '/admin/milestones': typeof AdminMilestonesRoute
   '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
@@ -100,8 +124,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/onetouch': typeof OnetouchRoute
+  '/report-hazard': typeof ReportHazardRoute
   '/admin/entrances': typeof AdminEntrancesRoute
+  '/admin/field-mode': typeof AdminFieldModeRoute
   '/admin/field-survey': typeof AdminFieldSurveyRoute
+  '/admin/hazards': typeof AdminHazardsRoute
   '/admin/milestones': typeof AdminMilestonesRoute
   '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
@@ -114,8 +141,11 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/onetouch'
+    | '/report-hazard'
     | '/admin/entrances'
+    | '/admin/field-mode'
     | '/admin/field-survey'
+    | '/admin/hazards'
     | '/admin/milestones'
     | '/auth/pending'
     | '/walk/start'
@@ -126,8 +156,11 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/onetouch'
+    | '/report-hazard'
     | '/admin/entrances'
+    | '/admin/field-mode'
     | '/admin/field-survey'
+    | '/admin/hazards'
     | '/admin/milestones'
     | '/auth/pending'
     | '/walk/start'
@@ -138,8 +171,11 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/onetouch'
+    | '/report-hazard'
     | '/admin/entrances'
+    | '/admin/field-mode'
     | '/admin/field-survey'
+    | '/admin/hazards'
     | '/admin/milestones'
     | '/auth/pending'
     | '/walk/start'
@@ -151,8 +187,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRouteWithChildren
   OnetouchRoute: typeof OnetouchRoute
+  ReportHazardRoute: typeof ReportHazardRoute
   AdminEntrancesRoute: typeof AdminEntrancesRoute
+  AdminFieldModeRoute: typeof AdminFieldModeRoute
   AdminFieldSurveyRoute: typeof AdminFieldSurveyRoute
+  AdminHazardsRoute: typeof AdminHazardsRoute
   AdminMilestonesRoute: typeof AdminMilestonesRoute
   WalkStartRoute: typeof WalkStartRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -161,6 +200,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/report-hazard': {
+      id: '/report-hazard'
+      path: '/report-hazard'
+      fullPath: '/report-hazard'
+      preLoaderRoute: typeof ReportHazardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/onetouch': {
       id: '/onetouch'
       path: '/onetouch'
@@ -217,11 +263,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMilestonesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/hazards': {
+      id: '/admin/hazards'
+      path: '/admin/hazards'
+      fullPath: '/admin/hazards'
+      preLoaderRoute: typeof AdminHazardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/field-survey': {
       id: '/admin/field-survey'
       path: '/admin/field-survey'
       fullPath: '/admin/field-survey'
       preLoaderRoute: typeof AdminFieldSurveyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/field-mode': {
+      id: '/admin/field-mode'
+      path: '/admin/field-mode'
+      fullPath: '/admin/field-mode'
+      preLoaderRoute: typeof AdminFieldModeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/entrances': {
@@ -248,8 +308,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRouteWithChildren,
   OnetouchRoute: OnetouchRoute,
+  ReportHazardRoute: ReportHazardRoute,
   AdminEntrancesRoute: AdminEntrancesRoute,
+  AdminFieldModeRoute: AdminFieldModeRoute,
   AdminFieldSurveyRoute: AdminFieldSurveyRoute,
+  AdminHazardsRoute: AdminHazardsRoute,
   AdminMilestonesRoute: AdminMilestonesRoute,
   WalkStartRoute: WalkStartRoute,
   AdminIndexRoute: AdminIndexRoute,

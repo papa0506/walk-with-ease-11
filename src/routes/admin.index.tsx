@@ -1,7 +1,7 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ShieldAlert, ClipboardCheck, MapPin, Ruler, AlertTriangle } from "lucide-react";
+import { ShieldAlert, ClipboardCheck, MapPin, Ruler, AlertTriangle, Footprints } from "lucide-react";
 import { AppShell } from "@/components/walk/AppShell";
 import { StatusCard } from "@/components/walk/StatusCard";
 import { useMe } from "@/hooks/useMe";
@@ -14,7 +14,6 @@ export const Route = createFileRoute("/admin/")({
 
 function AdminHome() {
   const { data: me } = useMe();
-  const navigate = useNavigate();
   const listFn = useServerFn(adminListUsers);
   const setStatusFn = useServerFn(adminSetStatus);
   const { data: users = [], refetch, isLoading, error } = useQuery({
@@ -42,8 +41,12 @@ function AdminHome() {
   return (
     <AppShell title="관리자" back={{ to: "/" }}>
       <nav aria-label="관리자 메뉴" className="grid grid-cols-1 gap-3">
+        <AdminMenuRow to="/admin/field-mode" icon={<Footprints size={28} />}
+          title="현장 실측 모드" subtitle="200m 표지 연속 + 지형지물 + 위험 기록" />
+        <AdminMenuRow to="/admin/hazards" icon={<AlertTriangle size={28} />}
+          title="위험 관리" subtitle="제보 확인 · 해제 · 만료 연장" />
         <AdminMenuRow to="/admin/field-survey" icon={<MapPin size={28} />}
-          title="현장 측량" subtitle="현재 위치를 랜드마크 후보로 저장" />
+          title="단건 현장 측량" subtitle="개별 랜드마크 저장 (구버전)" />
         <AdminMenuRow to="/admin/entrances" icon={<ClipboardCheck size={28} />}
           title="입구 좌표 보정" subtitle="국립극장 / 케이블카 방면 입구" />
         <AdminMenuRow to="/admin/milestones" icon={<Ruler size={28} />}

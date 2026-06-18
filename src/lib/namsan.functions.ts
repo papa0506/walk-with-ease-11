@@ -162,16 +162,21 @@ export const adminRecordEntrance = createServerFn({ method: "POST" })
 
 export const adminSaveLandmark = createServerFn({ method: "POST" })
   .inputValidator((i: {
-    name: string; type: string; announcement: string; direction_hint: string;
-    lat: number; lng: number; accuracy: number;
+    name: string; type: string; custom_name?: string | null;
+    announcement: string; direction_hint?: string;
+    side: "LEFT"|"RIGHT"|"FRONT"|"BOTH"|"ALL"|"UNKNOWN";
+    survey_direction: "THEATER_TO_CABLECAR"|"CABLECAR_TO_THEATER"|"UNSPEC";
+    lat: number; lng: number; accuracy: number; route_meter?: number | null;
   }) => i)
   .handler(async ({ data }) => {
     const me = await requireAdmin();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("landmarks").insert({
-      name: data.name, type: data.type, announcement: data.announcement,
-      direction_hint: data.direction_hint,
+      name: data.name, type: data.type, custom_name: data.custom_name ?? null,
+      announcement: data.announcement, direction_hint: data.direction_hint ?? null,
+      side: data.side, survey_direction: data.survey_direction,
       lat: data.lat, lng: data.lng, accuracy: data.accuracy,
+      route_meter: data.route_meter ?? null,
       verified: false, created_by: me.id,
     });
     if (error) throw new Error(error.message);
@@ -181,6 +186,7 @@ export const adminSaveLandmark = createServerFn({ method: "POST" })
 export const adminSaveMilestone = createServerFn({ method: "POST" })
   .inputValidator((i: {
     basis_entrance_code: string; meter: number;
+    survey_direction: "THEATER_TO_CABLECAR"|"CABLECAR_TO_THEATER"|"UNSPEC";
     lat: number; lng: number; accuracy: number;
   }) => i)
   .handler(async ({ data }) => {
@@ -191,6 +197,7 @@ export const adminSaveMilestone = createServerFn({ method: "POST" })
     if (!ent) throw new Error("기준 입구를 찾을 수 없습니다.");
     const { error } = await supabaseAdmin.from("milestones").insert({
       basis_entrance: ent.id, meter: data.meter,
+      survey_direction: data.survey_direction,
       lat: data.lat, lng: data.lng, accuracy: data.accuracy,
       verification_status: "FIELD_MEASURED", verified: false, measured_by: me.id,
     });
@@ -249,3 +256,148 @@ export const createOnetouchHandoff = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { handoff_token };
   });
+
+// ---------- HAZARDS ----------
+
+type HazardType = "CONSTRUCTION" | "VEHICLE" | "OBSTACLE" | "SLIPPERY";
+type HazardSubtype = "TEMP" | "LONG" | null;
+type Side = "LEFT" | "RIGHT" | "FRONT" | "BOTH" | "ALL" | "UNKNOWN";
+
+const HAZARD_LABELS: Record<HazardType, string> = {
+  CONSTRUCTION: "공사 주의",
+  VEHICLE: "차량 주의",
+  OBSTACLE: "장애물 주의",
+  SLIPPERY: "미끄럼 주의",
+};
+
+function computeExpiresAt(type: HazardType, subtype: HazardSubtype): string {
+  const hours =
+    type === "CONSTRUCTION" ? (subtype === "LONG" ? 72 : 24)
+    : type === "VEHICLE" ? 2
+    : 6;
+  return new Date(Date.now() + hours * 3600 * 1000).toISOString();
+}
+
+export const reportHazard = createServerFn({ method: "POST" })
+  .inputValidator((i: {
+    type: HazardType; subtype?: HazardSubtype; side: Side;
+    description?: string | null;
+    lat: number; lng: number; accuracy: number;
+    route_meter?: number | null;
+  }) => i)
+  .handler(async ({ data }) => {
+    const { getSessionTokenFromCookie, userFromToken } = await import("@/lib/namsan-auth.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const user = await userFromToken(getSessionTokenFromCookie(getRequestHeader("cookie")));
+    const reporter_type = !user ? "ANONYMOUS" : user.role === "ADMIN" ? "ADMIN" : "USER";
+    const subtype = data.type === "CONSTRUCTION" ? (data.subtype ?? "TEMP") : null;
+    const expires_at = computeExpiresAt(data.type, subtype);
+    const label = HAZARD_LABELS[data.type] + (subtype === "LONG" ? " (장기 공사)" : subtype === "TEMP" ? " (일시 공사)" : "");
+    const { data: row, error } = await supabaseAdmin.from("hazards").insert({
+      type: data.type, subtype, label, side: data.side,
+      description: data.description ?? null,
+      lat: data.lat, lng: data.lng, accuracy: data.accuracy,
+      route_meter: data.route_meter ?? null,
+      reporter_type, verification_status: reporter_type === "ADMIN" ? "ADMIN_CONFIRMED" : "USER_REPORTED",
+      verified: reporter_type === "ADMIN", active: true, expires_at,
+      created_by: user?.id ?? null,
+    }).select("id, expires_at").single();
+    if (error) throw new Error(error.message);
+    return { id: row.id, expires_at: row.expires_at };
+  });
+
+export const nearbyHazards = createServerFn({ method: "POST" })
+  .inputValidator((i: { lat: number; lng: number; radiusM?: number }) => i)
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("hazards")
+      .select("id,type,subtype,label,side,description,lat,lng,verified,verification_status,reporter_type,expires_at,created_at")
+      .eq("active", true)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw new Error(error.message);
+    const R = data.radiusM ?? 100;
+    const filtered = (rows ?? []).filter((h) => {
+      if (h.lat == null || h.lng == null) return false;
+      const d = haversine(data.lat, data.lng, h.lat, h.lng);
+      return d <= R;
+    });
+    return filtered;
+  });
+
+export const hazardFeedback = createServerFn({ method: "POST" })
+  .inputValidator((i: { id: string; vote: "STILL_THERE" | "GONE" }) => i)
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    if (data.vote === "STILL_THERE") {
+      // Extend by 1 hour from now, but never shorten
+      const { data: h } = await supabaseAdmin.from("hazards").select("expires_at").eq("id", data.id).maybeSingle();
+      const cur = h?.expires_at ? new Date(h.expires_at).getTime() : 0;
+      const ext = Date.now() + 3600 * 1000;
+      const next = new Date(Math.max(cur, ext)).toISOString();
+      await supabaseAdmin.from("hazards").update({ expires_at: next }).eq("id", data.id);
+    } else {
+      // "없어졌어요" — mark needs review (keep active until admin confirms)
+      await supabaseAdmin.from("hazards").update({
+        description: "[사용자: 없어졌어요 신고됨]",
+      }).eq("id", data.id);
+    }
+    return { ok: true };
+  });
+
+export const adminListHazards = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAdmin();
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("hazards")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+});
+
+export const adminUpdateHazard = createServerFn({ method: "POST" })
+  .inputValidator((i: {
+    id: string;
+    action: "CONFIRM" | "CLEAR" | "EXTEND";
+    extendHours?: number;
+  }) => i)
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let q;
+    if (data.action === "CONFIRM") {
+      q = supabaseAdmin.from("hazards").update({
+        verification_status: "ADMIN_CONFIRMED" as const,
+        verified: true,
+      }).eq("id", data.id);
+    } else if (data.action === "CLEAR") {
+      q = supabaseAdmin.from("hazards").update({
+        active: false,
+        verification_status: "CLEARED" as const,
+        cleared_at: new Date().toISOString(),
+      }).eq("id", data.id);
+    } else {
+      const hours = data.extendHours ?? 6;
+      q = supabaseAdmin.from("hazards").update({
+        expires_at: new Date(Date.now() + hours * 3600 * 1000).toISOString(),
+        active: true,
+      }).eq("id", data.id);
+    }
+    const { error } = await q;
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
