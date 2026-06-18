@@ -82,14 +82,9 @@ function WalkScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Math.floor(meters / 200)]);
 
-  if (me && me.status !== "APPROVED") {
-    return (
-      <AppShell title="접근 제한" back={{ to: "/" }}>
-        <StatusCard tone="warning" icon={<AlertTriangle aria-hidden size={28} />}
-          title="승인된 사용자만 사용할 수 있습니다" />
-      </AppShell>
-    );
-  }
+  // /walk is open to everyone (including guests / PENDING). Only certain
+  // actions like 원터치복지콜 require APPROVED — gated at action time.
+  const isApproved = me?.status === "APPROVED";
 
   const acc = coords?.acc;
   const nextAnnouncement = Math.floor(meters / 200) * 200 + 200;
