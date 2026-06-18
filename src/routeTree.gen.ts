@@ -9,13 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as OnetouchRouteImport } from './routes/onetouch'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WalkIndexRouteImport } from './routes/walk.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as WalkStartRouteImport } from './routes/walk.start'
 import { Route as AuthPendingRouteImport } from './routes/auth.pending'
+import { Route as AdminMilestonesRouteImport } from './routes/admin.milestones'
+import { Route as AdminFieldSurveyRouteImport } from './routes/admin.field-survey'
+import { Route as AdminEntrancesRouteImport } from './routes/admin.entrances'
 
+const OnetouchRoute = OnetouchRouteImport.update({
+  id: '/onetouch',
+  path: '/onetouch',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -46,10 +55,29 @@ const AuthPendingRoute = AuthPendingRouteImport.update({
   path: '/pending',
   getParentRoute: () => AuthRoute,
 } as any)
+const AdminMilestonesRoute = AdminMilestonesRouteImport.update({
+  id: '/admin/milestones',
+  path: '/admin/milestones',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminFieldSurveyRoute = AdminFieldSurveyRouteImport.update({
+  id: '/admin/field-survey',
+  path: '/admin/field-survey',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminEntrancesRoute = AdminEntrancesRouteImport.update({
+  id: '/admin/entrances',
+  path: '/admin/entrances',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
+  '/onetouch': typeof OnetouchRoute
+  '/admin/entrances': typeof AdminEntrancesRoute
+  '/admin/field-survey': typeof AdminFieldSurveyRoute
+  '/admin/milestones': typeof AdminMilestonesRoute
   '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
   '/admin/': typeof AdminIndexRoute
@@ -58,6 +86,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
+  '/onetouch': typeof OnetouchRoute
+  '/admin/entrances': typeof AdminEntrancesRoute
+  '/admin/field-survey': typeof AdminFieldSurveyRoute
+  '/admin/milestones': typeof AdminMilestonesRoute
   '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
   '/admin': typeof AdminIndexRoute
@@ -67,6 +99,10 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
+  '/onetouch': typeof OnetouchRoute
+  '/admin/entrances': typeof AdminEntrancesRoute
+  '/admin/field-survey': typeof AdminFieldSurveyRoute
+  '/admin/milestones': typeof AdminMilestonesRoute
   '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
   '/admin/': typeof AdminIndexRoute
@@ -77,16 +113,34 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/onetouch'
+    | '/admin/entrances'
+    | '/admin/field-survey'
+    | '/admin/milestones'
     | '/auth/pending'
     | '/walk/start'
     | '/admin/'
     | '/walk/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/auth/pending' | '/walk/start' | '/admin' | '/walk'
+  to:
+    | '/'
+    | '/auth'
+    | '/onetouch'
+    | '/admin/entrances'
+    | '/admin/field-survey'
+    | '/admin/milestones'
+    | '/auth/pending'
+    | '/walk/start'
+    | '/admin'
+    | '/walk'
   id:
     | '__root__'
     | '/'
     | '/auth'
+    | '/onetouch'
+    | '/admin/entrances'
+    | '/admin/field-survey'
+    | '/admin/milestones'
     | '/auth/pending'
     | '/walk/start'
     | '/admin/'
@@ -96,6 +150,10 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRouteWithChildren
+  OnetouchRoute: typeof OnetouchRoute
+  AdminEntrancesRoute: typeof AdminEntrancesRoute
+  AdminFieldSurveyRoute: typeof AdminFieldSurveyRoute
+  AdminMilestonesRoute: typeof AdminMilestonesRoute
   WalkStartRoute: typeof WalkStartRoute
   AdminIndexRoute: typeof AdminIndexRoute
   WalkIndexRoute: typeof WalkIndexRoute
@@ -103,6 +161,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/onetouch': {
+      id: '/onetouch'
+      path: '/onetouch'
+      fullPath: '/onetouch'
+      preLoaderRoute: typeof OnetouchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -145,6 +210,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthPendingRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/admin/milestones': {
+      id: '/admin/milestones'
+      path: '/admin/milestones'
+      fullPath: '/admin/milestones'
+      preLoaderRoute: typeof AdminMilestonesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/field-survey': {
+      id: '/admin/field-survey'
+      path: '/admin/field-survey'
+      fullPath: '/admin/field-survey'
+      preLoaderRoute: typeof AdminFieldSurveyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/entrances': {
+      id: '/admin/entrances'
+      path: '/admin/entrances'
+      fullPath: '/admin/entrances'
+      preLoaderRoute: typeof AdminEntrancesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -161,6 +247,10 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRouteWithChildren,
+  OnetouchRoute: OnetouchRoute,
+  AdminEntrancesRoute: AdminEntrancesRoute,
+  AdminFieldSurveyRoute: AdminFieldSurveyRoute,
+  AdminMilestonesRoute: AdminMilestonesRoute,
   WalkStartRoute: WalkStartRoute,
   AdminIndexRoute: AdminIndexRoute,
   WalkIndexRoute: WalkIndexRoute,
