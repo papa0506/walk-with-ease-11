@@ -39,6 +39,7 @@ function FieldSurvey() {
     try {
       await saveFn({ data: {
         name, type, announcement, direction_hint: direction,
+        side: "UNKNOWN", survey_direction: "UNSPEC",
         lat: pos.lat, lng: pos.lng, accuracy: pos.acc,
       }});
       setMsg("저장됨 (verified=false, 안내에 사용되지 않음)");
