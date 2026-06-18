@@ -14,7 +14,388 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          revoked_at: string | null
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          revoked_at?: string | null
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          revoked_at?: string | null
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_users: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          default_share_mode: Database["public"]["Enums"]["share_mode"]
+          id: string
+          name: string
+          password_hash: string
+          phone: string
+          public_code: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          status: Database["public"]["Enums"]["user_status"]
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          default_share_mode?: Database["public"]["Enums"]["share_mode"]
+          id?: string
+          name: string
+          password_hash: string
+          phone: string
+          public_code?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          status?: Database["public"]["Enums"]["user_status"]
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          default_share_mode?: Database["public"]["Enums"]["share_mode"]
+          id?: string
+          name?: string
+          password_hash?: string
+          phone?: string
+          public_code?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          status?: Database["public"]["Enums"]["user_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_users_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entrances: {
+        Row: {
+          accuracy: number | null
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          lat: number | null
+          lng: number | null
+          measured_at: string | null
+          measured_by: string | null
+          name: string
+          updated_at: string
+          verified: boolean
+        }
+        Insert: {
+          accuracy?: number | null
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          measured_at?: string | null
+          measured_by?: string | null
+          name: string
+          updated_at?: string
+          verified?: boolean
+        }
+        Update: {
+          accuracy?: number | null
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          measured_at?: string | null
+          measured_by?: string | null
+          name?: string
+          updated_at?: string
+          verified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entrances_measured_by_fkey"
+            columns: ["measured_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hazards: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          lat: number | null
+          lng: number | null
+          route_meter: number | null
+          type: string | null
+          verified: boolean
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          route_meter?: number | null
+          type?: string | null
+          verified?: boolean
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          route_meter?: number | null
+          type?: string | null
+          verified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hazards_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landmarks: {
+        Row: {
+          accuracy: number | null
+          announcement: string | null
+          created_at: string
+          created_by: string | null
+          direction_hint: string | null
+          id: string
+          lat: number | null
+          lng: number | null
+          name: string
+          route_meter: number | null
+          type: string | null
+          verified: boolean
+        }
+        Insert: {
+          accuracy?: number | null
+          announcement?: string | null
+          created_at?: string
+          created_by?: string | null
+          direction_hint?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          name: string
+          route_meter?: number | null
+          type?: string | null
+          verified?: boolean
+        }
+        Update: {
+          accuracy?: number | null
+          announcement?: string | null
+          created_at?: string
+          created_by?: string | null
+          direction_hint?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          name?: string
+          route_meter?: number | null
+          type?: string | null
+          verified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landmarks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      milestones: {
+        Row: {
+          accuracy: number | null
+          basis_entrance: string
+          id: string
+          lat: number | null
+          lng: number | null
+          measured_at: string
+          measured_by: string | null
+          meter: number
+          verification_status: Database["public"]["Enums"]["milestone_verification"]
+          verified: boolean
+        }
+        Insert: {
+          accuracy?: number | null
+          basis_entrance: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          measured_at?: string
+          measured_by?: string | null
+          meter: number
+          verification_status?: Database["public"]["Enums"]["milestone_verification"]
+          verified?: boolean
+        }
+        Update: {
+          accuracy?: number | null
+          basis_entrance?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          measured_at?: string
+          measured_by?: string | null
+          meter?: number
+          verification_status?: Database["public"]["Enums"]["milestone_verification"]
+          verified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "milestones_basis_entrance_fkey"
+            columns: ["basis_entrance"]
+            isOneToOne: false
+            referencedRelation: "entrances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "milestones_measured_by_fkey"
+            columns: ["measured_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onetouch_handoffs: {
+        Row: {
+          created_at: string
+          handoff_token: string
+          id: string
+          pickup_entrance_id: string | null
+          return_url: string | null
+          status: Database["public"]["Enums"]["handoff_status"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          handoff_token: string
+          id?: string
+          pickup_entrance_id?: string | null
+          return_url?: string | null
+          status?: Database["public"]["Enums"]["handoff_status"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          handoff_token?: string
+          id?: string
+          pickup_entrance_id?: string | null
+          return_url?: string | null
+          status?: Database["public"]["Enums"]["handoff_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onetouch_handoffs_pickup_entrance_id_fkey"
+            columns: ["pickup_entrance_id"]
+            isOneToOne: false
+            referencedRelation: "entrances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onetouch_handoffs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      walk_sessions: {
+        Row: {
+          direction: Database["public"]["Enums"]["walk_direction"]
+          ended_at: string | null
+          id: string
+          start_entrance_id: string | null
+          started_at: string
+          status: Database["public"]["Enums"]["walk_status"]
+          user_id: string
+        }
+        Insert: {
+          direction?: Database["public"]["Enums"]["walk_direction"]
+          ended_at?: string | null
+          id?: string
+          start_entrance_id?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["walk_status"]
+          user_id: string
+        }
+        Update: {
+          direction?: Database["public"]["Enums"]["walk_direction"]
+          ended_at?: string | null
+          id?: string
+          start_entrance_id?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["walk_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "walk_sessions_start_entrance_id_fkey"
+            columns: ["start_entrance_id"]
+            isOneToOne: false
+            referencedRelation: "entrances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "walk_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +404,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      handoff_status: "CREATED" | "SENT" | "DONE" | "CANCELLED"
+      milestone_verification: "NONE" | "FIELD_MEASURED" | "VERIFIED"
+      share_mode: "PRIVATE" | "FRIENDS" | "PUBLIC"
+      user_role: "USER" | "ADMIN"
+      user_status: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED"
+      walk_direction: "CW" | "CCW" | "UNSPEC"
+      walk_status: "ACTIVE" | "DONE" | "ABORTED"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +537,14 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      handoff_status: ["CREATED", "SENT", "DONE", "CANCELLED"],
+      milestone_verification: ["NONE", "FIELD_MEASURED", "VERIFIED"],
+      share_mode: ["PRIVATE", "FRIENDS", "PUBLIC"],
+      user_role: ["USER", "ADMIN"],
+      user_status: ["PENDING", "APPROVED", "REJECTED", "SUSPENDED"],
+      walk_direction: ["CW", "CCW", "UNSPEC"],
+      walk_status: ["ACTIVE", "DONE", "ABORTED"],
+    },
   },
 } as const
