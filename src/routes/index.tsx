@@ -50,11 +50,9 @@ function Home() {
       title={me ? `${me.name}님,\n오늘도 안전하게 걸어요` : "남산 산책 동반자"}
       topRight={topRight}
       bottomAction={
-        isApproved ? (
-          <Link to="/walk/start" className="btn-primary" aria-label="산책 시작 화면으로 이동">
-            <Footprints aria-hidden="true" size={28} /> 산책 시작하기
-          </Link>
-        ) : null
+        <Link to="/walk/start" className="btn-primary" aria-label="산책로 기본 안내 시작">
+          <Footprints aria-hidden="true" size={28} /> 산책로 기본 안내 시작
+        </Link>
       }
     >
       {me ? (
@@ -62,23 +60,31 @@ function Home() {
           tone={isApproved ? "success" : "warning"}
           icon={<ShieldCheck aria-hidden="true" size={28} />}
           eyebrow="계정 상태"
-          title={isApproved ? "승인됨 — 산책 기능 사용 가능" : "승인 대기 중"}
+          title={isApproved ? "승인됨 — 모든 기능 사용 가능" : "승인 대기 중 — 기본 산책 안내는 사용할 수 있습니다"}
           description={`${me.name} · ${me.phone_masked} · ${me.role}`}
         />
-      ) : null}
+      ) : (
+        <StatusCard
+          tone="info"
+          icon={<ShieldCheck aria-hidden="true" size={28} />}
+          eyebrow="비공개 릴리즈 후보"
+          title="현장 테스트 전용 버전입니다"
+          description="기본 산책 안내·위험 신고는 로그인 없이 사용할 수 있습니다. 원터치 복지콜·친구 찾기는 승인 후 사용 가능합니다."
+        />
+      )}
 
       <nav aria-label="주요 메뉴" className="space-y-3">
         <MenuRow
-          to={isApproved ? "/walk/start" : "/auth"}
+          to="/walk/start"
           icon={<Footprints aria-hidden size={28} />}
           title="산책 시작"
-          subtitle={isApproved ? "경로를 고르고 음성 안내를 시작합니다" : "로그인 후 사용할 수 있습니다"}
+          subtitle="경로를 고르고 음성 안내를 시작합니다"
         />
         <MenuRow
           to={isApproved ? "/onetouch" : "/auth"}
           icon={<PhoneCall aria-hidden size={28} />}
-          title="원터치 복지콜"
-          subtitle={isApproved ? "픽업 위치를 골라 핸드오프를 준비합니다" : "로그인 후 사용할 수 있습니다"}
+          title="원터치 복지콜 (보조)"
+          subtitle={isApproved ? "산책 중 화면에서 주로 사용합니다" : "관리자 승인 후 사용할 수 있습니다"}
         />
         {isAdmin && (
           <MenuRow to="/admin" icon={<ShieldAlert aria-hidden size={28} />} title="관리자" subtitle="가입 승인 · 현장 측량 · 입구/거리표지 보정" />

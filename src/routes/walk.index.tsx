@@ -82,14 +82,9 @@ function WalkScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Math.floor(meters / 200)]);
 
-  if (me && me.status !== "APPROVED") {
-    return (
-      <AppShell title="접근 제한" back={{ to: "/" }}>
-        <StatusCard tone="warning" icon={<AlertTriangle aria-hidden size={28} />}
-          title="승인된 사용자만 사용할 수 있습니다" />
-      </AppShell>
-    );
-  }
+  // /walk is open to everyone (including guests / PENDING). Only certain
+  // actions like 원터치복지콜 require APPROVED — gated at action time.
+  const isApproved = me?.status === "APPROVED";
 
   const acc = coords?.acc;
   const nextAnnouncement = Math.floor(meters / 200) * 200 + 200;
@@ -99,14 +94,20 @@ function WalkScreen() {
       title="산책 중"
       back={{ to: "/" }}
       bottomAction={
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-3">
           <button
             type="button"
-            className="btn-secondary"
-            onClick={() => navigate({ to: "/onetouch" })}
-            aria-label="원터치 복지콜 화면으로 이동"
+            className="btn-primary"
+            onClick={() => {
+              if (!isApproved) {
+                alert("원터치 복지콜은 관리자 승인 후 사용할 수 있습니다.");
+                return;
+              }
+              navigate({ to: "/onetouch" });
+            }}
+            aria-label="원터치 복지콜 호출"
           >
-            <PhoneCall aria-hidden size={22} /> 원터치
+            <PhoneCall aria-hidden size={26} /> 원터치 복지콜
           </button>
           <button
             type="button"
