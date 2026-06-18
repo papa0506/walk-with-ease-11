@@ -19,6 +19,12 @@ export const Route = createFileRoute("/walk/")({
 });
 
 type Coords = { lat: number; lng: number; acc: number; heading: number | null };
+type HazardLite = {
+  id: string; type: string; label: string | null; side: string;
+  description: string | null; lat: number | null; lng: number | null;
+  verified: boolean; verification_status: string; reporter_type: string;
+  expires_at: string | null;
+};
 
 function WalkScreen() {
   const { data: me } = useMe();
