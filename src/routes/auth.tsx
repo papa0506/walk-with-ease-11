@@ -30,7 +30,7 @@ function AuthScreen() {
     setErr(null); setBusy(true);
     try {
       if (mode === "login") {
-        const r = await loginFn({ data: { phone, pin } });
+        const r = await loginFn({ data: { name, phone, pin } });
         await invalidate();
         navigate({ to: r.user.status === "APPROVED" ? "/" : "/auth/pending" });
       } else {
