@@ -94,14 +94,20 @@ function WalkScreen() {
       title="산책 중"
       back={{ to: "/" }}
       bottomAction={
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-3">
           <button
             type="button"
-            className="btn-secondary"
-            onClick={() => navigate({ to: "/onetouch" })}
-            aria-label="원터치 복지콜 화면으로 이동"
+            className="btn-primary"
+            onClick={() => {
+              if (!isApproved) {
+                alert("원터치 복지콜은 관리자 승인 후 사용할 수 있습니다.");
+                return;
+              }
+              navigate({ to: "/onetouch" });
+            }}
+            aria-label="원터치 복지콜 호출"
           >
-            <PhoneCall aria-hidden size={22} /> 원터치
+            <PhoneCall aria-hidden size={26} /> 원터치 복지콜
           </button>
           <button
             type="button"
