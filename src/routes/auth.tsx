@@ -94,11 +94,13 @@ function AuthScreen() {
             type="password" inputMode="numeric" maxLength={4} autoComplete="new-password"
           />
         )}
-        {err && (
-          <p role="alert" className="rounded-xl border-2 border-foreground bg-[var(--danger)] px-4 py-3 text-lg font-bold text-[var(--danger-foreground)]">
-            {err}
-          </p>
-        )}
+        <div role="alert" aria-live="assertive" aria-atomic="true" className="min-h-[1px]">
+          {err && (
+            <p className="rounded-xl border-2 border-foreground bg-[var(--danger)] px-4 py-3 text-lg font-bold text-[var(--danger-foreground)]">
+              {err}
+            </p>
+          )}
+        </div>
       </form>
     </AppShell>
   );
