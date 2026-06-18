@@ -68,6 +68,14 @@ function WalkScreen() {
           if (d < 50) setMeters((m) => m + d);
         }
         lastPos.current = c;
+        // Poll nearby hazards at most every 20s
+        const now = Date.now();
+        if (now - lastHazardCheck.current > 20_000) {
+          lastHazardCheck.current = now;
+          nearbyFn({ data: { lat: c.lat, lng: c.lng, radiusM: 100 } })
+            .then((rows) => setHazards(rows as HazardLite[]))
+            .catch(() => { /* noop */ });
+        }
       },
       () => setPermission("denied"),
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 },
