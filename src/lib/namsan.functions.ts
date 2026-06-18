@@ -122,11 +122,10 @@ export const adminSetStatus = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const me = await requireAdmin();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const patch: Record<string, unknown> = { status: data.status };
-    if (data.status === "APPROVED") {
-      patch.approved_at = new Date().toISOString();
-      patch.approved_by = me.id;
-    }
+    const patch =
+      data.status === "APPROVED"
+        ? { status: data.status, approved_at: new Date().toISOString(), approved_by: me.id }
+        : { status: data.status };
     const { error } = await supabaseAdmin
       .from("app_users").update(patch).eq("id", data.userId);
     if (error) throw new Error(error.message);
