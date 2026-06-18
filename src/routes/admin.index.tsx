@@ -1,7 +1,7 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ShieldAlert, ClipboardCheck, MapPin, Ruler, AlertTriangle } from "lucide-react";
+import { ShieldAlert, ClipboardCheck, MapPin, Ruler, AlertTriangle, Footprints } from "lucide-react";
 import { AppShell } from "@/components/walk/AppShell";
 import { StatusCard } from "@/components/walk/StatusCard";
 import { useMe } from "@/hooks/useMe";
