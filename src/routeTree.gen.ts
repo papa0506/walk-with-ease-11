@@ -18,6 +18,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as WalkStartRouteImport } from './routes/walk.start'
 import { Route as AuthPendingRouteImport } from './routes/auth.pending'
 import { Route as AdminMilestonesRouteImport } from './routes/admin.milestones'
+import { Route as AdminHazardsRouteImport } from './routes/admin.hazards'
 import { Route as AdminFieldSurveyRouteImport } from './routes/admin.field-survey'
 import { Route as AdminEntrancesRouteImport } from './routes/admin.entrances'
 
@@ -66,6 +67,11 @@ const AdminMilestonesRoute = AdminMilestonesRouteImport.update({
   path: '/admin/milestones',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminHazardsRoute = AdminHazardsRouteImport.update({
+  id: '/admin/hazards',
+  path: '/admin/hazards',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminFieldSurveyRoute = AdminFieldSurveyRouteImport.update({
   id: '/admin/field-survey',
   path: '/admin/field-survey',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/report-hazard': typeof ReportHazardRoute
   '/admin/entrances': typeof AdminEntrancesRoute
   '/admin/field-survey': typeof AdminFieldSurveyRoute
+  '/admin/hazards': typeof AdminHazardsRoute
   '/admin/milestones': typeof AdminMilestonesRoute
   '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/report-hazard': typeof ReportHazardRoute
   '/admin/entrances': typeof AdminEntrancesRoute
   '/admin/field-survey': typeof AdminFieldSurveyRoute
+  '/admin/hazards': typeof AdminHazardsRoute
   '/admin/milestones': typeof AdminMilestonesRoute
   '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/report-hazard': typeof ReportHazardRoute
   '/admin/entrances': typeof AdminEntrancesRoute
   '/admin/field-survey': typeof AdminFieldSurveyRoute
+  '/admin/hazards': typeof AdminHazardsRoute
   '/admin/milestones': typeof AdminMilestonesRoute
   '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/report-hazard'
     | '/admin/entrances'
     | '/admin/field-survey'
+    | '/admin/hazards'
     | '/admin/milestones'
     | '/auth/pending'
     | '/walk/start'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/report-hazard'
     | '/admin/entrances'
     | '/admin/field-survey'
+    | '/admin/hazards'
     | '/admin/milestones'
     | '/auth/pending'
     | '/walk/start'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/report-hazard'
     | '/admin/entrances'
     | '/admin/field-survey'
+    | '/admin/hazards'
     | '/admin/milestones'
     | '/auth/pending'
     | '/walk/start'
@@ -166,6 +178,7 @@ export interface RootRouteChildren {
   ReportHazardRoute: typeof ReportHazardRoute
   AdminEntrancesRoute: typeof AdminEntrancesRoute
   AdminFieldSurveyRoute: typeof AdminFieldSurveyRoute
+  AdminHazardsRoute: typeof AdminHazardsRoute
   AdminMilestonesRoute: typeof AdminMilestonesRoute
   WalkStartRoute: typeof WalkStartRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -237,6 +250,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMilestonesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/hazards': {
+      id: '/admin/hazards'
+      path: '/admin/hazards'
+      fullPath: '/admin/hazards'
+      preLoaderRoute: typeof AdminHazardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/field-survey': {
       id: '/admin/field-survey'
       path: '/admin/field-survey'
@@ -271,6 +291,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReportHazardRoute: ReportHazardRoute,
   AdminEntrancesRoute: AdminEntrancesRoute,
   AdminFieldSurveyRoute: AdminFieldSurveyRoute,
+  AdminHazardsRoute: AdminHazardsRoute,
   AdminMilestonesRoute: AdminMilestonesRoute,
   WalkStartRoute: WalkStartRoute,
   AdminIndexRoute: AdminIndexRoute,
