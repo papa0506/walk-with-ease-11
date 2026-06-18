@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ReportHazardRouteImport } from './routes/report-hazard'
 import { Route as OnetouchRouteImport } from './routes/onetouch'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -20,6 +21,11 @@ import { Route as AdminMilestonesRouteImport } from './routes/admin.milestones'
 import { Route as AdminFieldSurveyRouteImport } from './routes/admin.field-survey'
 import { Route as AdminEntrancesRouteImport } from './routes/admin.entrances'
 
+const ReportHazardRoute = ReportHazardRouteImport.update({
+  id: '/report-hazard',
+  path: '/report-hazard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OnetouchRoute = OnetouchRouteImport.update({
   id: '/onetouch',
   path: '/onetouch',
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/onetouch': typeof OnetouchRoute
+  '/report-hazard': typeof ReportHazardRoute
   '/admin/entrances': typeof AdminEntrancesRoute
   '/admin/field-survey': typeof AdminFieldSurveyRoute
   '/admin/milestones': typeof AdminMilestonesRoute
@@ -87,6 +94,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/onetouch': typeof OnetouchRoute
+  '/report-hazard': typeof ReportHazardRoute
   '/admin/entrances': typeof AdminEntrancesRoute
   '/admin/field-survey': typeof AdminFieldSurveyRoute
   '/admin/milestones': typeof AdminMilestonesRoute
@@ -100,6 +108,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/onetouch': typeof OnetouchRoute
+  '/report-hazard': typeof ReportHazardRoute
   '/admin/entrances': typeof AdminEntrancesRoute
   '/admin/field-survey': typeof AdminFieldSurveyRoute
   '/admin/milestones': typeof AdminMilestonesRoute
@@ -114,6 +123,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/onetouch'
+    | '/report-hazard'
     | '/admin/entrances'
     | '/admin/field-survey'
     | '/admin/milestones'
@@ -126,6 +136,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/onetouch'
+    | '/report-hazard'
     | '/admin/entrances'
     | '/admin/field-survey'
     | '/admin/milestones'
@@ -138,6 +149,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/onetouch'
+    | '/report-hazard'
     | '/admin/entrances'
     | '/admin/field-survey'
     | '/admin/milestones'
@@ -151,6 +163,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRouteWithChildren
   OnetouchRoute: typeof OnetouchRoute
+  ReportHazardRoute: typeof ReportHazardRoute
   AdminEntrancesRoute: typeof AdminEntrancesRoute
   AdminFieldSurveyRoute: typeof AdminFieldSurveyRoute
   AdminMilestonesRoute: typeof AdminMilestonesRoute
@@ -161,6 +174,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/report-hazard': {
+      id: '/report-hazard'
+      path: '/report-hazard'
+      fullPath: '/report-hazard'
+      preLoaderRoute: typeof ReportHazardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/onetouch': {
       id: '/onetouch'
       path: '/onetouch'
@@ -248,6 +268,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRouteWithChildren,
   OnetouchRoute: OnetouchRoute,
+  ReportHazardRoute: ReportHazardRoute,
   AdminEntrancesRoute: AdminEntrancesRoute,
   AdminFieldSurveyRoute: AdminFieldSurveyRoute,
   AdminMilestonesRoute: AdminMilestonesRoute,
