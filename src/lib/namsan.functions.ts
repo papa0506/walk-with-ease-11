@@ -41,24 +41,28 @@ export const signup = createServerFn({ method: "POST" })
   });
 
 export const login = createServerFn({ method: "POST" })
-  .inputValidator((input: { phone: string; pin: string }) => input)
+  .inputValidator((input: { name: string; phone: string; pin: string }) => input)
   .handler(async ({ data }) => {
     const {
       normalizePhone, isValidPin, verifyPin, createSession, sessionCookieHeader, publicUser,
     } = await import("@/lib/namsan-auth.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    const FAIL = "로그인에 실패했습니다. 이름, 전화번호, 비밀번호를 확인해 주세요.";
     const phone = normalizePhone(data.phone);
-    if (!isValidPin(data.pin)) throw new Error("PIN은 4자리 숫자여야 합니다.");
+    const name = (data.name ?? "").trim();
+    if (!name) throw new Error(FAIL);
+    if (!isValidPin(data.pin)) throw new Error(FAIL);
 
     const { data: user } = await supabaseAdmin
       .from("app_users").select("*").eq("phone", phone).maybeSingle();
-    if (!user) throw new Error("전화번호 또는 PIN이 올바르지 않습니다.");
+    if (!user) throw new Error(FAIL);
+    if (user.name.trim() !== name) throw new Error(FAIL);
 
     const ok = await verifyPin(data.pin, user.password_hash);
-    if (!ok) throw new Error("전화번호 또는 PIN이 올바르지 않습니다.");
-    if (user.status === "REJECTED" || user.status === "SUSPENDED")
-      throw new Error("이 계정은 사용이 정지되어 있습니다.");
+    if (!ok) throw new Error(FAIL);
+    if (user.status === "REJECTED") throw new Error("사용이 거부된 계정입니다. 관리자에게 문의하세요.");
+    if (user.status === "SUSPENDED") throw new Error("사용이 정지된 계정입니다. 관리자에게 문의하세요.");
 
     const token = await createSession(user.id);
     setResponseHeader("set-cookie", sessionCookieHeader(token));
