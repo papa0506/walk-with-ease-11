@@ -15,24 +15,13 @@ export const Route = createFileRoute("/walk/start")({
 type Choice = "NTH_THEATER" | "NTH_CABLECAR" | "CURRENT";
 
 function WalkStart() {
-  const { data: me, isLoading } = useMe();
+  const { data: me } = useMe();
   const [choice, setChoice] = useState<Choice>("NTH_THEATER");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const startFn = useServerFn(startWalk);
   const navigate = useNavigate();
-
-  if (!isLoading && (!me || me.status !== "APPROVED")) {
-    return (
-      <AppShell title="접근 제한" back={{ to: "/" }}>
-        <StatusCard
-          tone="warning" icon={<AlertTriangle aria-hidden size={28} />}
-          title="승인된 사용자만 사용할 수 있습니다"
-          description="로그인 후 관리자 승인을 받아야 산책 기능을 사용할 수 있습니다."
-        />
-      </AppShell>
-    );
-  }
+  const isApproved = me?.status === "APPROVED";
 
   return (
     <AppShell
