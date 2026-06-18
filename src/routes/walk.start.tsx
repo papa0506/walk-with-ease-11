@@ -35,10 +35,15 @@ function WalkStart() {
           onClick={async () => {
             setErr(null); setBusy(true);
             try {
-              const r = await startFn({
-                data: { startEntranceCode: choice === "CURRENT" ? null : choice },
-              });
-              navigate({ to: "/walk", search: { walkId: r.walkId } as never });
+              if (isApproved) {
+                const r = await startFn({
+                  data: { startEntranceCode: choice === "CURRENT" ? null : choice },
+                });
+                navigate({ to: "/walk", search: { walkId: r.walkId } as never });
+              } else {
+                // 비로그인/PENDING: 세션 저장 없이 안내만 시작
+                navigate({ to: "/walk", search: {} as never });
+              }
             } catch (e: unknown) {
               setErr(e instanceof Error ? e.message : "산책 시작 실패");
             } finally { setBusy(false); }
