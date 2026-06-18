@@ -14,7 +14,6 @@ export const Route = createFileRoute("/admin/")({
 
 function AdminHome() {
   const { data: me } = useMe();
-  const navigate = useNavigate();
   const listFn = useServerFn(adminListUsers);
   const setStatusFn = useServerFn(adminSetStatus);
   const { data: users = [], refetch, isLoading, error } = useQuery({
