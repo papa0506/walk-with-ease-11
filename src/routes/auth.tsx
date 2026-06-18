@@ -77,22 +77,20 @@ function AuthScreen() {
       </div>
 
       <form id="auth-form" className="space-y-3" onSubmit={submit}>
-        {mode === "signup" && (
-          <Field id="name" label="이름" value={name} onChange={setName} autoComplete="name" />
-        )}
+        <Field id="name" label="이름" value={name} onChange={setName} autoComplete="name" />
         <Field
           id="phone" label="전화번호" value={phone} onChange={setPhone}
           type="tel" autoComplete="tel" inputMode="numeric"
           hint="숫자만 입력해도 됩니다. 예: 01012345678"
         />
         <Field
-          id="pin" label="PIN (4자리 숫자)" value={pin} onChange={setPin}
+          id="pin" label="비밀번호 (4자리 숫자)" value={pin} onChange={setPin}
           type="password" inputMode="numeric" maxLength={4}
           autoComplete={mode === "login" ? "current-password" : "new-password"}
         />
         {mode === "signup" && (
           <Field
-            id="pin2" label="PIN 확인" value={pin2} onChange={setPin2}
+            id="pin2" label="비밀번호 확인" value={pin2} onChange={setPin2}
             type="password" inputMode="numeric" maxLength={4} autoComplete="new-password"
           />
         )}
