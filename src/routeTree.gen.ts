@@ -20,6 +20,7 @@ import { Route as AuthPendingRouteImport } from './routes/auth.pending'
 import { Route as AdminMilestonesRouteImport } from './routes/admin.milestones'
 import { Route as AdminHazardsRouteImport } from './routes/admin.hazards'
 import { Route as AdminFieldSurveyRouteImport } from './routes/admin.field-survey'
+import { Route as AdminFieldModeRouteImport } from './routes/admin.field-mode'
 import { Route as AdminEntrancesRouteImport } from './routes/admin.entrances'
 
 const ReportHazardRoute = ReportHazardRouteImport.update({
@@ -77,6 +78,11 @@ const AdminFieldSurveyRoute = AdminFieldSurveyRouteImport.update({
   path: '/admin/field-survey',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminFieldModeRoute = AdminFieldModeRouteImport.update({
+  id: '/admin/field-mode',
+  path: '/admin/field-mode',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminEntrancesRoute = AdminEntrancesRouteImport.update({
   id: '/admin/entrances',
   path: '/admin/entrances',
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/onetouch': typeof OnetouchRoute
   '/report-hazard': typeof ReportHazardRoute
   '/admin/entrances': typeof AdminEntrancesRoute
+  '/admin/field-mode': typeof AdminFieldModeRoute
   '/admin/field-survey': typeof AdminFieldSurveyRoute
   '/admin/hazards': typeof AdminHazardsRoute
   '/admin/milestones': typeof AdminMilestonesRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByTo {
   '/onetouch': typeof OnetouchRoute
   '/report-hazard': typeof ReportHazardRoute
   '/admin/entrances': typeof AdminEntrancesRoute
+  '/admin/field-mode': typeof AdminFieldModeRoute
   '/admin/field-survey': typeof AdminFieldSurveyRoute
   '/admin/hazards': typeof AdminHazardsRoute
   '/admin/milestones': typeof AdminMilestonesRoute
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/onetouch': typeof OnetouchRoute
   '/report-hazard': typeof ReportHazardRoute
   '/admin/entrances': typeof AdminEntrancesRoute
+  '/admin/field-mode': typeof AdminFieldModeRoute
   '/admin/field-survey': typeof AdminFieldSurveyRoute
   '/admin/hazards': typeof AdminHazardsRoute
   '/admin/milestones': typeof AdminMilestonesRoute
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/onetouch'
     | '/report-hazard'
     | '/admin/entrances'
+    | '/admin/field-mode'
     | '/admin/field-survey'
     | '/admin/hazards'
     | '/admin/milestones'
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/onetouch'
     | '/report-hazard'
     | '/admin/entrances'
+    | '/admin/field-mode'
     | '/admin/field-survey'
     | '/admin/hazards'
     | '/admin/milestones'
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/onetouch'
     | '/report-hazard'
     | '/admin/entrances'
+    | '/admin/field-mode'
     | '/admin/field-survey'
     | '/admin/hazards'
     | '/admin/milestones'
@@ -177,6 +189,7 @@ export interface RootRouteChildren {
   OnetouchRoute: typeof OnetouchRoute
   ReportHazardRoute: typeof ReportHazardRoute
   AdminEntrancesRoute: typeof AdminEntrancesRoute
+  AdminFieldModeRoute: typeof AdminFieldModeRoute
   AdminFieldSurveyRoute: typeof AdminFieldSurveyRoute
   AdminHazardsRoute: typeof AdminHazardsRoute
   AdminMilestonesRoute: typeof AdminMilestonesRoute
@@ -264,6 +277,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminFieldSurveyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/field-mode': {
+      id: '/admin/field-mode'
+      path: '/admin/field-mode'
+      fullPath: '/admin/field-mode'
+      preLoaderRoute: typeof AdminFieldModeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/entrances': {
       id: '/admin/entrances'
       path: '/admin/entrances'
@@ -290,6 +310,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnetouchRoute: OnetouchRoute,
   ReportHazardRoute: ReportHazardRoute,
   AdminEntrancesRoute: AdminEntrancesRoute,
+  AdminFieldModeRoute: AdminFieldModeRoute,
   AdminFieldSurveyRoute: AdminFieldSurveyRoute,
   AdminHazardsRoute: AdminHazardsRoute,
   AdminMilestonesRoute: AdminMilestonesRoute,
