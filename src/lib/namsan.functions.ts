@@ -162,16 +162,21 @@ export const adminRecordEntrance = createServerFn({ method: "POST" })
 
 export const adminSaveLandmark = createServerFn({ method: "POST" })
   .inputValidator((i: {
-    name: string; type: string; announcement: string; direction_hint: string;
-    lat: number; lng: number; accuracy: number;
+    name: string; type: string; custom_name?: string | null;
+    announcement: string; direction_hint?: string;
+    side: "LEFT"|"RIGHT"|"FRONT"|"BOTH"|"ALL"|"UNKNOWN";
+    survey_direction: "THEATER_TO_CABLECAR"|"CABLECAR_TO_THEATER"|"UNSPEC";
+    lat: number; lng: number; accuracy: number; route_meter?: number | null;
   }) => i)
   .handler(async ({ data }) => {
     const me = await requireAdmin();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("landmarks").insert({
-      name: data.name, type: data.type, announcement: data.announcement,
-      direction_hint: data.direction_hint,
+      name: data.name, type: data.type, custom_name: data.custom_name ?? null,
+      announcement: data.announcement, direction_hint: data.direction_hint ?? null,
+      side: data.side, survey_direction: data.survey_direction,
       lat: data.lat, lng: data.lng, accuracy: data.accuracy,
+      route_meter: data.route_meter ?? null,
       verified: false, created_by: me.id,
     });
     if (error) throw new Error(error.message);
@@ -181,6 +186,7 @@ export const adminSaveLandmark = createServerFn({ method: "POST" })
 export const adminSaveMilestone = createServerFn({ method: "POST" })
   .inputValidator((i: {
     basis_entrance_code: string; meter: number;
+    survey_direction: "THEATER_TO_CABLECAR"|"CABLECAR_TO_THEATER"|"UNSPEC";
     lat: number; lng: number; accuracy: number;
   }) => i)
   .handler(async ({ data }) => {
@@ -191,6 +197,7 @@ export const adminSaveMilestone = createServerFn({ method: "POST" })
     if (!ent) throw new Error("기준 입구를 찾을 수 없습니다.");
     const { error } = await supabaseAdmin.from("milestones").insert({
       basis_entrance: ent.id, meter: data.meter,
+      survey_direction: data.survey_direction,
       lat: data.lat, lng: data.lng, accuracy: data.accuracy,
       verification_status: "FIELD_MEASURED", verified: false, measured_by: me.id,
     });
