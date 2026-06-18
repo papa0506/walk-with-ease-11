@@ -31,6 +31,7 @@ function Milestones() {
         try {
           await saveFn({ data: {
             basis_entrance_code: basis, meter,
+            survey_direction: "UNSPEC",
             lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy,
           }});
           setMsg(`${basis} 기준 ${meter}m 보정 저장됨 (FIELD_MEASURED, verified=false)`);
