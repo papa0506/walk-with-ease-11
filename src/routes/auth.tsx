@@ -40,7 +40,7 @@ function AuthScreen() {
           setErr(r.error ?? "로그인에 실패했습니다.");
           return;
         }
-        await invalidate();
+        await invalidate(r.user);
         navigate({ to: r.user.status === "APPROVED" ? "/" : "/auth/pending" });
       } else {
         await signupFn({ data: { name: cleanName, phone: cleanPhone, pin: cleanPin, pinConfirm: pin2.trim() } });
