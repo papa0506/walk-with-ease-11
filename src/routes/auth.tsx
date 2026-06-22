@@ -28,8 +28,8 @@ function AuthScreen() {
     const cleanName = name.trim();
     const cleanPhone = phone.trim();
     const cleanPin = pin.trim();
-    if (!cleanName || !cleanPhone || !cleanPin) {
-      setErr("이름, 전화번호, 비밀번호를 모두 입력해 주세요.");
+    if (!cleanPhone || !cleanPin || (mode === "signup" && !cleanName)) {
+      setErr(mode === "login" ? "전화번호와 비밀번호를 입력해 주세요." : "이름, 전화번호, 비밀번호를 모두 입력해 주세요.");
       return;
     }
     setErr(null); setBusy(true);
@@ -40,7 +40,7 @@ function AuthScreen() {
           setErr(r.error ?? "로그인에 실패했습니다.");
           return;
         }
-        await invalidate();
+        await invalidate(r.user);
         navigate({ to: r.user.status === "APPROVED" ? "/" : "/auth/pending" });
       } else {
         await signupFn({ data: { name: cleanName, phone: cleanPhone, pin: cleanPin, pinConfirm: pin2.trim() } });
