@@ -28,8 +28,8 @@ function AuthScreen() {
     const cleanName = name.trim();
     const cleanPhone = phone.trim();
     const cleanPin = pin.trim();
-    if (!cleanName || !cleanPhone || !cleanPin) {
-      setErr("이름, 전화번호, 비밀번호를 모두 입력해 주세요.");
+    if (!cleanPhone || !cleanPin || (mode === "signup" && !cleanName)) {
+      setErr(mode === "login" ? "전화번호와 비밀번호를 입력해 주세요." : "이름, 전화번호, 비밀번호를 모두 입력해 주세요.");
       return;
     }
     setErr(null); setBusy(true);
