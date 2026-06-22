@@ -1,9 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Footprints, MapPin, AlertTriangle } from "lucide-react";
+import { Footprints } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/walk/AppShell";
-import { StatusCard } from "@/components/walk/StatusCard";
 import { useMe } from "@/hooks/useMe";
 import { startWalk } from "@/lib/namsan.functions";
 
@@ -41,7 +40,6 @@ function WalkStart() {
                 });
                 navigate({ to: "/walk", search: { walkId: r.walkId } as never });
               } else {
-                // 비로그인/PENDING: 세션 저장 없이 안내만 시작
                 navigate({ to: "/walk", search: {} as never });
               }
             } catch (e: unknown) {
@@ -55,20 +53,6 @@ function WalkStart() {
         </button>
       }
     >
-      <StatusCard
-        tone="info" icon={<MapPin aria-hidden size={28} />}
-        eyebrow="위치 권한"
-        title="산책 중 위치 권한이 필요합니다"
-        description="다음 화면에서 위치 권한을 요청합니다. 위치 정보는 본인 산책 안내 외에는 공유되지 않습니다."
-      />
-
-      <StatusCard
-        tone="warning" icon={<AlertTriangle aria-hidden size={28} />}
-        eyebrow="안내"
-        title="미검증 남산 데이터는 안내에 사용되지 않습니다"
-        description="관리자가 현장에서 검증한 입구·거리 표지만 음성 안내에 사용됩니다."
-      />
-
       <fieldset className="space-y-3">
         <legend className="mb-2 text-xl font-extrabold">출발 위치 선택</legend>
         <RadioRow id="r1" name="start" checked={choice === "NTH_THEATER"} onChange={() => setChoice("NTH_THEATER")}
@@ -76,7 +60,7 @@ function WalkStart() {
         <RadioRow id="r2" name="start" checked={choice === "NTH_CABLECAR"} onChange={() => setChoice("NTH_CABLECAR")}
           title="북측순환로 입구, 남산케이블카 방면에서 출발" subtitle="북측순환로 서쪽 시작점" />
         <RadioRow id="r3" name="start" checked={choice === "CURRENT"} onChange={() => setChoice("CURRENT")}
-          title="현재 위치에서 출발" subtitle="가장 가까운 기준점을 자동으로 찾습니다 (다음 단계)" />
+          title="현재 위치에서 출발" subtitle="가장 가까운 기준점을 자동으로 찾습니다" />
       </fieldset>
 
       {err && (
