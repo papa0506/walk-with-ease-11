@@ -51,22 +51,22 @@ export const login = createServerFn({ method: "POST" })
     const FAIL = "로그인에 실패했습니다. 이름, 전화번호, 비밀번호를 확인해 주세요.";
     const phone = normalizePhone(data.phone);
     const name = (data.name ?? "").trim();
-    if (!name) throw new Error(FAIL);
-    if (!isValidPin(data.pin)) throw new Error(FAIL);
+    if (!name) return { user: null, error: FAIL };
+    if (!isValidPin(data.pin)) return { user: null, error: FAIL };
 
-    const { data: user } = await supabaseAdmin
+    const { data: user, error } = await supabaseAdmin
       .from("app_users").select("*").eq("phone", phone).maybeSingle();
-    if (!user) throw new Error(FAIL);
-    if (user.name.trim() !== name) throw new Error(FAIL);
+    if (error || !user) return { user: null, error: FAIL };
+    if (user.name.trim() !== name) return { user: null, error: FAIL };
 
     const ok = await verifyPin(data.pin, user.password_hash);
-    if (!ok) throw new Error(FAIL);
-    if (user.status === "REJECTED") throw new Error("사용이 거부된 계정입니다. 관리자에게 문의하세요.");
-    if (user.status === "SUSPENDED") throw new Error("사용이 정지된 계정입니다. 관리자에게 문의하세요.");
+    if (!ok) return { user: null, error: FAIL };
+    if (user.status === "REJECTED") return { user: null, error: "사용이 거부된 계정입니다. 관리자에게 문의하세요." };
+    if (user.status === "SUSPENDED") return { user: null, error: "사용이 정지된 계정입니다. 관리자에게 문의하세요." };
 
     const token = await createSession(user.id);
     setResponseHeader("set-cookie", sessionCookieHeader(token));
-    return { user: publicUser(user) };
+    return { user: publicUser(user), error: null };
   });
 
 export const logout = createServerFn({ method: "POST" }).handler(async () => {
