@@ -1,12 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  Mic, MicOff, Navigation, AlertTriangle, PhoneCall, Square, Compass,
+  Mic, MicOff, Navigation, AlertTriangle, PhoneCall, Square,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { AppShell } from "@/components/walk/AppShell";
-import { StatusCard } from "@/components/walk/StatusCard";
 import { useMe } from "@/hooks/useMe";
 import { endWalk, nearbyHazards, hazardFeedback } from "@/lib/namsan.functions";
 
