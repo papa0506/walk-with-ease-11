@@ -101,6 +101,7 @@ function WalkScreen() {
 
   // /walk is open to everyone (including guests / PENDING). Only certain
   // actions like 원터치복지콜 require APPROVED — gated at action time.
+  const isApproved = me?.status === "APPROVED";
   const nextAnnouncement = Math.floor(meters / 200) * 200 + 200;
 
   return (
