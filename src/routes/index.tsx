@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   Footprints, PhoneCall, ChevronRight, LogIn, LogOut, ShieldAlert,
+  AlertTriangle, Settings as SettingsIcon,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/walk/AppShell";
