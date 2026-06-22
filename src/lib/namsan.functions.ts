@@ -58,14 +58,11 @@ export const login = createServerFn({ method: "POST" })
 
     const FAIL = "로그인에 실패했습니다. 이름, 전화번호, 비밀번호를 확인해 주세요.";
     const phone = normalizePhone(data.phone);
-    const name = (data.name ?? "").trim();
-    if (!name) return { user: null, error: FAIL };
     if (!isValidPin(data.pin)) return { user: null, error: FAIL };
 
     const { data: user, error } = await supabaseAdmin
       .from("app_users").select("*").eq("phone", phone).maybeSingle();
     if (error || !user) return { user: null, error: FAIL };
-    if (user.name.trim() !== name) return { user: null, error: FAIL };
 
     const ok = await verifyPin(data.pin, user.password_hash);
     if (!ok) return { user: null, error: FAIL };
