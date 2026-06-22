@@ -1,12 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  Mic, MicOff, Navigation, AlertTriangle, PhoneCall, Square, Compass,
+  Mic, MicOff, Navigation, AlertTriangle, PhoneCall, Square,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { AppShell } from "@/components/walk/AppShell";
-import { StatusCard } from "@/components/walk/StatusCard";
 import { useMe } from "@/hooks/useMe";
 import { endWalk, nearbyHazards, hazardFeedback } from "@/lib/namsan.functions";
 
@@ -103,8 +102,6 @@ function WalkScreen() {
   // /walk is open to everyone (including guests / PENDING). Only certain
   // actions like 원터치복지콜 require APPROVED — gated at action time.
   const isApproved = me?.status === "APPROVED";
-
-  const acc = coords?.acc;
   const nextAnnouncement = Math.floor(meters / 200) * 200 + 200;
 
   return (
@@ -142,88 +139,56 @@ function WalkScreen() {
         </div>
       }
     >
-      <StatusCard
-        tone={permission === "granted" ? "success" : permission === "denied" ? "danger" : "warning"}
-        icon={<Compass aria-hidden size={28} />}
-        eyebrow="위치"
-        title={
-          permission === "granted" ? `GPS 정확도 약 ${Math.round(acc ?? 0)} m`
-          : permission === "denied" ? "위치 권한이 거부되었습니다"
-          : "위치 권한이 필요합니다"
-        }
-        description={
-          permission === "granted" ? "현재 위치를 추적 중입니다. 위치 정보는 본인 안내에만 사용됩니다."
-          : "아래 버튼으로 위치 권한을 요청하세요."
-        }
-      >
-        {permission !== "granted" && (
-          <button type="button" className="btn-secondary" onClick={requestLocation}>
-            <Navigation aria-hidden size={22} /> 위치 권한 요청
-          </button>
-        )}
-      </StatusCard>
-
-      <StatusCard
-        tone={voiceOn ? "success" : "neutral"}
-        icon={voiceOn ? <Mic aria-hidden size={28} /> : <MicOff aria-hidden size={28} />}
-        eyebrow="음성 안내"
-        title={voiceOn ? "음성 안내 켜짐" : "음성 안내 꺼짐"}
-        description="200m마다 안내합니다. 화면을 보지 않아도 진행 상황을 들을 수 있습니다."
-      >
-        <button type="button" className="btn-secondary" onClick={() => setVoiceOn((v) => !v)}>
-          {voiceOn ? "음성 안내 끄기" : "음성 안내 켜기"}
+      {permission !== "granted" && (
+        <button type="button" className="btn-secondary" onClick={requestLocation}>
+          <Navigation aria-hidden size={22} /> 위치 권한 요청
         </button>
-      </StatusCard>
+      )}
 
-      <StatusCard
-        tone="info"
-        icon={<Navigation aria-hidden size={28} />}
-        eyebrow="거리 안내"
-        title={`이동 거리 약 ${Math.round(meters)} m`}
-        description={`다음 안내 지점: ${nextAnnouncement} m`}
-      />
-
-      <section aria-label="근처 위험 안내" className="space-y-3">
-        <h2 className="text-xl font-extrabold">근처 위험 (100m)</h2>
-        {hazards.length === 0 ? (
-          <StatusCard tone="neutral" icon={<AlertTriangle aria-hidden size={28} />}
-            title="근처에 표시할 위험 제보가 없습니다"
-            description="제보된 위험만 표시됩니다. 관리자 확인 전 제보는 ‘임시 경고’로만 보입니다." />
-        ) : hazards.map((h) => {
-          const adminConfirmed = h.verification_status === "ADMIN_CONFIRMED";
-          const sideText = sideLabel(h.side);
-          return (
-            <article key={h.id} className="status-card space-y-2"
-              style={{ background: adminConfirmed ? "var(--warning)" : "var(--card)", color: adminConfirmed ? "var(--warning-foreground)" : "var(--foreground)" }}>
-              <p className="text-xl font-extrabold">
-                {h.label ?? h.type}
-              </p>
-              <p className="text-base">
-                {sideText}에 제보가 있습니다.
-              </p>
-              <p className="text-sm">
-                {adminConfirmed ? "관리자 확인됨" : "이용자 제보 · 관리자 확인 전 · 임시 경고 · 자동 만료 예정"}
-              </p>
-              {h.description && <p className="text-sm">{h.description}</p>}
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <button className="btn-secondary min-h-12"
-                  onClick={() => feedbackFn({ data: { id: h.id, vote: "STILL_THERE" } })}>
-                  아직 있어요
-                </button>
-                <button className="btn-secondary min-h-12"
-                  onClick={() => feedbackFn({ data: { id: h.id, vote: "GONE" } })}>
-                  없어졌어요
-                </button>
-              </div>
-            </article>
-          );
-        })}
-        <button type="button" className="btn-secondary"
-          onClick={() => navigate({ to: "/report-hazard" })}
-          aria-label="위험 신고 화면으로 이동">
-          <AlertTriangle aria-hidden size={22} /> 위험 신고하기
+      <div className="flex items-center justify-between gap-3 rounded-2xl border-2 border-foreground bg-card px-4 py-3">
+        <p className="text-lg font-extrabold">
+          {Math.round(meters)} m · 다음 안내 {nextAnnouncement} m
+        </p>
+        <button type="button" className="btn-secondary min-h-12 px-3"
+          onClick={() => setVoiceOn((v) => !v)}
+          aria-label={voiceOn ? "음성 안내 끄기" : "음성 안내 켜기"}>
+          {voiceOn ? <Mic aria-hidden size={22} /> : <MicOff aria-hidden size={22} />}
+          {voiceOn ? "음성 켜짐" : "음성 꺼짐"}
         </button>
-      </section>
+      </div>
+
+      <button type="button" className="btn-secondary"
+        onClick={() => navigate({ to: "/report-hazard" })}
+        aria-label="위험 신고 화면으로 이동">
+        <AlertTriangle aria-hidden size={22} /> 공사 및 위험 신고
+      </button>
+
+      {hazards.length > 0 && (
+        <section aria-label="근처 위험 안내" className="space-y-3">
+          {hazards.map((h) => {
+            const adminConfirmed = h.verification_status === "ADMIN_CONFIRMED";
+            const sideText = sideLabel(h.side);
+            return (
+              <article key={h.id} className="status-card space-y-2"
+                style={{ background: adminConfirmed ? "var(--warning)" : "var(--card)", color: adminConfirmed ? "var(--warning-foreground)" : "var(--foreground)" }}>
+                <p className="text-xl font-extrabold">{h.label ?? h.type}</p>
+                <p className="text-base">{sideText}에 제보가 있습니다.</p>
+                {h.description && <p className="text-sm">{h.description}</p>}
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button className="btn-secondary min-h-12"
+                    onClick={() => feedbackFn({ data: { id: h.id, vote: "STILL_THERE" } })}>
+                    아직 있어요
+                  </button>
+                  <button className="btn-secondary min-h-12"
+                    onClick={() => feedbackFn({ data: { id: h.id, vote: "GONE" } })}>
+                    없어졌어요
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
     </AppShell>
   );
 }

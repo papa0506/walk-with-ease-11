@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   Footprints, PhoneCall, ChevronRight, LogIn, LogOut, ShieldAlert,
+  AlertTriangle, Settings as SettingsIcon,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/walk/AppShell";
@@ -73,11 +74,23 @@ function Home() {
           subtitle="경로를 고르고 음성 안내를 시작합니다"
         />
         <MenuRow
+          to="/report-hazard"
+          icon={<AlertTriangle aria-hidden size={28} />}
+          title="공사 및 위험 신고"
+          subtitle="공사·차량·장애물·미끄럼 위험을 알려 주세요"
+        />
+        <MenuRow
           to="/onetouch"
           onClick={handleOnetouch}
           icon={<PhoneCall aria-hidden size={28} />}
           title="원터치 복지콜"
-          subtitle={isApproved ? "산책 중 화면에서 주로 사용합니다" : "로그인·승인 후 사용할 수 있습니다"}
+          subtitle="픽업·도착 위치를 골라 호출합니다"
+        />
+        <MenuRow
+          to="/settings"
+          icon={<SettingsIcon aria-hidden size={28} />}
+          title="설정"
+          subtitle="내 정보 공개 범위를 설정합니다"
         />
         {isAdmin && (
           <MenuRow to="/admin" icon={<ShieldAlert aria-hidden size={28} />} title="관리자" subtitle="가입 승인 · 현장 측량 · 입구/거리표지 보정" />

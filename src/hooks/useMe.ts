@@ -10,6 +10,7 @@ export type Me = {
   status: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
   created_at: string;
   approved_at: string | null;
+  default_share_mode: "PRIVATE" | "FRIENDS" | "PUBLIC";
 } | null;
 
 export function useMe() {

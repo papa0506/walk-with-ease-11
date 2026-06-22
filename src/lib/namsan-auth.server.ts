@@ -119,5 +119,6 @@ export function publicUser(u: AppUser) {
     status: u.status,
     created_at: u.created_at,
     approved_at: u.approved_at,
+    default_share_mode: (u as { default_share_mode?: string }).default_share_mode ?? "PRIVATE",
   };
 }

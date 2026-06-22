@@ -12,7 +12,7 @@ export const Route = createFileRoute("/onetouch")({
   component: Onetouch,
 });
 
-const PICKUPS = [
+const SPOTS = [
   { code: "NTH_THEATER", label: "국립극장 입구" },
   { code: "NTH_CABLECAR", label: "북측순환로 입구, 남산케이블카 방면" },
 ];
@@ -20,6 +20,7 @@ const PICKUPS = [
 function Onetouch() {
   const { data: me } = useMe();
   const [pickup, setPickup] = useState("NTH_THEATER");
+  const [dropoff, setDropoff] = useState("NTH_CABLECAR");
   const [token, setToken] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -38,7 +39,7 @@ function Onetouch() {
   async function submit() {
     setErr(null); setBusy(true);
     try {
-      const r = await fn({ data: { pickupEntranceCode: pickup } });
+      const r = await fn({ data: { pickupEntranceCode: pickup, dropoffEntranceCode: dropoff } });
       setToken(r.handoff_token);
     } catch (e: unknown) { setErr(e instanceof Error ? e.message : "실패"); }
     finally { setBusy(false); }
@@ -50,17 +51,12 @@ function Onetouch() {
         token
           ? <button className="btn-secondary" onClick={() => navigate({ to: "/" })}>홈으로</button>
           : <button className="btn-primary" onClick={submit} disabled={busy}>
-              <PhoneCall aria-hidden size={26} /> {busy ? "준비 중..." : "픽업 요청 준비"}
+              <PhoneCall aria-hidden size={26} /> {busy ? "준비 중..." : "픽업 요청"}
             </button>
       }>
-      <StatusCard tone="info" icon={<PhoneCall aria-hidden size={28} />}
-        eyebrow="안내"
-        title="픽업 위치만 선택합니다"
-        description="실제 복지콜 외부 연동은 다음 단계입니다. 지금은 핸드오프 토큰만 생성합니다." />
-
       <fieldset className="space-y-2">
-        <legend className="text-lg font-extrabold">픽업 입구 선택</legend>
-        {PICKUPS.map((p) => (
+        <legend className="text-lg font-extrabold">픽업 위치</legend>
+        {SPOTS.map((p) => (
           <label key={p.code} className="status-card flex items-center gap-3"
             style={pickup === p.code ? { background: "var(--primary)", color: "var(--primary-foreground)" } : undefined}>
             <input type="radio" name="pickup" className="h-6 w-6"
@@ -70,11 +66,22 @@ function Onetouch() {
         ))}
       </fieldset>
 
+      <fieldset className="space-y-2">
+        <legend className="text-lg font-extrabold">도착 위치</legend>
+        {SPOTS.map((p) => (
+          <label key={p.code} className="status-card flex items-center gap-3"
+            style={dropoff === p.code ? { background: "var(--primary)", color: "var(--primary-foreground)" } : undefined}>
+            <input type="radio" name="dropoff" className="h-6 w-6"
+              checked={dropoff === p.code} onChange={() => setDropoff(p.code)} />
+            <span className="text-lg font-extrabold">{p.label}</span>
+          </label>
+        ))}
+      </fieldset>
+
       {token && (
-        <StatusCard tone="success" icon={<PhoneCall aria-hidden size={28} />}
-          eyebrow="준비됨"
-          title="핸드오프 토큰 생성됨"
-          description={`token: ${token.slice(0, 12)}… (실제 외부 연동은 다음 단계)`} />
+        <p className="rounded-xl border-2 border-foreground bg-card px-4 py-3 text-lg font-bold">
+          요청이 접수되었습니다.
+        </p>
       )}
       {err && (
         <p role="alert" className="rounded-xl border-2 border-foreground bg-[var(--danger)] px-4 py-3 font-bold text-[var(--danger-foreground)]">{err}</p>
