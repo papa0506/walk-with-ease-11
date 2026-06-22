@@ -112,6 +112,7 @@ export function maskPhone(phone: string): string {
 }
 
 export function publicUser(u: AppUser) {
+  const shareMode = (u as { default_share_mode?: string }).default_share_mode;
   return {
     id: u.id,
     name: u.name,
@@ -120,6 +121,6 @@ export function publicUser(u: AppUser) {
     status: u.status,
     created_at: u.created_at,
     approved_at: u.approved_at,
-    default_share_mode: (u as { default_share_mode?: string }).default_share_mode ?? "PRIVATE",
+    default_share_mode: shareMode === "FRIENDS" || shareMode === "PUBLIC" ? shareMode : "PRIVATE",
   };
 }
