@@ -166,47 +166,32 @@ function WalkScreen() {
         <AlertTriangle aria-hidden size={22} /> 공사 및 위험 신고
       </button>
 
-      <section aria-label="근처 위험 안내" className="space-y-3">
-        <h2 className="text-xl font-extrabold">근처 위험 (100m)</h2>
-        {hazards.length === 0 ? (
-          <StatusCard tone="neutral" icon={<AlertTriangle aria-hidden size={28} />}
-            title="근처에 표시할 위험 제보가 없습니다"
-            description="제보된 위험만 표시됩니다. 관리자 확인 전 제보는 ‘임시 경고’로만 보입니다." />
-        ) : hazards.map((h) => {
-          const adminConfirmed = h.verification_status === "ADMIN_CONFIRMED";
-          const sideText = sideLabel(h.side);
-          return (
-            <article key={h.id} className="status-card space-y-2"
-              style={{ background: adminConfirmed ? "var(--warning)" : "var(--card)", color: adminConfirmed ? "var(--warning-foreground)" : "var(--foreground)" }}>
-              <p className="text-xl font-extrabold">
-                {h.label ?? h.type}
-              </p>
-              <p className="text-base">
-                {sideText}에 제보가 있습니다.
-              </p>
-              <p className="text-sm">
-                {adminConfirmed ? "관리자 확인됨" : "이용자 제보 · 관리자 확인 전 · 임시 경고 · 자동 만료 예정"}
-              </p>
-              {h.description && <p className="text-sm">{h.description}</p>}
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <button className="btn-secondary min-h-12"
-                  onClick={() => feedbackFn({ data: { id: h.id, vote: "STILL_THERE" } })}>
-                  아직 있어요
-                </button>
-                <button className="btn-secondary min-h-12"
-                  onClick={() => feedbackFn({ data: { id: h.id, vote: "GONE" } })}>
-                  없어졌어요
-                </button>
-              </div>
-            </article>
-          );
-        })}
-        <button type="button" className="btn-secondary"
-          onClick={() => navigate({ to: "/report-hazard" })}
-          aria-label="위험 신고 화면으로 이동">
-          <AlertTriangle aria-hidden size={22} /> 위험 신고하기
-        </button>
-      </section>
+      {hazards.length > 0 && (
+        <section aria-label="근처 위험 안내" className="space-y-3">
+          {hazards.map((h) => {
+            const adminConfirmed = h.verification_status === "ADMIN_CONFIRMED";
+            const sideText = sideLabel(h.side);
+            return (
+              <article key={h.id} className="status-card space-y-2"
+                style={{ background: adminConfirmed ? "var(--warning)" : "var(--card)", color: adminConfirmed ? "var(--warning-foreground)" : "var(--foreground)" }}>
+                <p className="text-xl font-extrabold">{h.label ?? h.type}</p>
+                <p className="text-base">{sideText}에 제보가 있습니다.</p>
+                {h.description && <p className="text-sm">{h.description}</p>}
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button className="btn-secondary min-h-12"
+                    onClick={() => feedbackFn({ data: { id: h.id, vote: "STILL_THERE" } })}>
+                    아직 있어요
+                  </button>
+                  <button className="btn-secondary min-h-12"
+                    onClick={() => feedbackFn({ data: { id: h.id, vote: "GONE" } })}>
+                    없어졌어요
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
     </AppShell>
   );
 }
