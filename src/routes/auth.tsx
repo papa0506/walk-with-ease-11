@@ -24,8 +24,7 @@ function AuthScreen() {
   const invalidate = useInvalidateMe();
   const navigate = useNavigate();
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleAuthSubmit() {
     const cleanName = name.trim();
     const cleanPhone = phone.trim();
     const cleanPin = pin.trim();
@@ -55,14 +54,19 @@ function AuthScreen() {
     }
   }
 
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    void handleAuthSubmit();
+  }
+
   return (
     <AppShell
       title={mode === "login" ? "로그인" : "회원가입"}
       back={{ to: "/" }}
       bottomAction={
         <button
-          type="submit"
-          form="auth-form"
+          type="button"
+          onClick={() => void handleAuthSubmit()}
           className="btn-primary"
           disabled={busy}
           aria-label={mode === "login" ? "로그인" : "회원가입 요청"}
