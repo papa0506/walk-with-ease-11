@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { forwardRef, useRef, useState } from "react";
 import { LogIn, UserPlus } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/walk/AppShell";
@@ -128,17 +128,18 @@ function TabBtn({ active, children, onClick }: { active: boolean; children: Reac
   );
 }
 
-function Field({
-  id, label, value, onChange, type = "text", autoComplete, hint, inputMode, maxLength,
-}: {
+const Field = forwardRef<HTMLInputElement, {
   id: string; label: string; value: string; onChange: (v: string) => void;
   type?: string; autoComplete?: string; hint?: string;
   inputMode?: "text" | "numeric" | "tel"; maxLength?: number;
-}) {
+}>(function Field({
+  id, label, value, onChange, type = "text", autoComplete, hint, inputMode, maxLength,
+}, ref) {
   return (
     <div>
       <label htmlFor={id} className="mb-2 block text-lg font-extrabold">{label}</label>
       <input
+        ref={ref}
         id={id} type={type} value={value} onChange={(e) => onChange(e.target.value)}
         autoComplete={autoComplete} inputMode={inputMode} maxLength={maxLength}
         aria-describedby={hint ? `${id}-hint` : undefined}
@@ -147,4 +148,4 @@ function Field({
       {hint && <p id={`${id}-hint`} className="mt-2 text-base text-muted-foreground">{hint}</p>}
     </div>
   );
-}
+});
