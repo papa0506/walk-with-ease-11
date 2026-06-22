@@ -68,17 +68,13 @@ function ReportHazard() {
   }
 
   return (
-    <AppShell title="위험 신고" back={{ to: "/walk", label: "산책 화면으로" }}
+    <AppShell title="공사 및 위험 신고" back={{ to: "/" }}
       bottomAction={
         <button className="btn-primary" onClick={submit} disabled={busy || !type || !pos}
           aria-label="현재 위치로 위험 신고">
           <Send aria-hidden size={26} /> {busy ? "전송 중..." : "현재 위치로 신고"}
         </button>
       }>
-      <StatusCard tone="info" icon={<AlertTriangle aria-hidden size={28} />}
-        eyebrow="안내"
-        title="비회원도 위험을 신고할 수 있습니다"
-        description="신고는 관리자 확인 전까지 ‘임시 경고’로만 표시되며, 종류에 따라 자동으로 만료됩니다." />
 
       <fieldset>
         <legend className="mb-2 text-xl font-extrabold">위험 종류</legend>
