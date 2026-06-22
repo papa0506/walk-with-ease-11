@@ -18,7 +18,7 @@ export const signup = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data }) => {
-    const { normalizePhone, isValidPin, hashPin, createSession, sessionCookieHeader, publicUser } =
+    const { normalizePhone, isValidPin, hashPin, createSession, SESSION_COOKIE, SESSION_TTL_SECONDS, publicUser } =
       await import("@/lib/namsan-auth.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -38,7 +38,13 @@ export const signup = createServerFn({ method: "POST" })
     if (error || !user) throw new Error(error?.message ?? "가입 실패");
 
     const token = await createSession(user.id);
-    setResponseHeader("set-cookie", sessionCookieHeader(token));
+    setCookie(SESSION_COOKIE, token, {
+      path: "/",
+      maxAge: SESSION_TTL_SECONDS,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
     return { user: publicUser(user) };
   });
 
