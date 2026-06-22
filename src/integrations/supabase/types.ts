@@ -348,6 +348,7 @@ export type Database = {
       onetouch_handoffs: {
         Row: {
           created_at: string
+          dropoff_entrance_id: string | null
           handoff_token: string
           id: string
           pickup_entrance_id: string | null
@@ -357,6 +358,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dropoff_entrance_id?: string | null
           handoff_token: string
           id?: string
           pickup_entrance_id?: string | null
@@ -366,6 +368,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dropoff_entrance_id?: string | null
           handoff_token?: string
           id?: string
           pickup_entrance_id?: string | null
@@ -374,6 +377,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "onetouch_handoffs_dropoff_entrance_id_fkey"
+            columns: ["dropoff_entrance_id"]
+            isOneToOne: false
+            referencedRelation: "entrances"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "onetouch_handoffs_pickup_entrance_id_fkey"
             columns: ["pickup_entrance_id"]

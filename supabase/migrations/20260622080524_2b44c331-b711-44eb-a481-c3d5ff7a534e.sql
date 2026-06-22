@@ -1,0 +1,1 @@
+ALTER TABLE public.onetouch_handoffs ADD COLUMN IF NOT EXISTS dropoff_entrance_id uuid REFERENCES public.entrances(id);
