@@ -142,46 +142,29 @@ function WalkScreen() {
         </div>
       }
     >
-      <StatusCard
-        tone={permission === "granted" ? "success" : permission === "denied" ? "danger" : "warning"}
-        icon={<Compass aria-hidden size={28} />}
-        eyebrow="위치"
-        title={
-          permission === "granted" ? `GPS 정확도 약 ${Math.round(acc ?? 0)} m`
-          : permission === "denied" ? "위치 권한이 거부되었습니다"
-          : "위치 권한이 필요합니다"
-        }
-        description={
-          permission === "granted" ? "현재 위치를 추적 중입니다. 위치 정보는 본인 안내에만 사용됩니다."
-          : "아래 버튼으로 위치 권한을 요청하세요."
-        }
-      >
-        {permission !== "granted" && (
-          <button type="button" className="btn-secondary" onClick={requestLocation}>
-            <Navigation aria-hidden size={22} /> 위치 권한 요청
-          </button>
-        )}
-      </StatusCard>
-
-      <StatusCard
-        tone={voiceOn ? "success" : "neutral"}
-        icon={voiceOn ? <Mic aria-hidden size={28} /> : <MicOff aria-hidden size={28} />}
-        eyebrow="음성 안내"
-        title={voiceOn ? "음성 안내 켜짐" : "음성 안내 꺼짐"}
-        description="200m마다 안내합니다. 화면을 보지 않아도 진행 상황을 들을 수 있습니다."
-      >
-        <button type="button" className="btn-secondary" onClick={() => setVoiceOn((v) => !v)}>
-          {voiceOn ? "음성 안내 끄기" : "음성 안내 켜기"}
+      {permission !== "granted" && (
+        <button type="button" className="btn-secondary" onClick={requestLocation}>
+          <Navigation aria-hidden size={22} /> 위치 권한 요청
         </button>
-      </StatusCard>
+      )}
 
-      <StatusCard
-        tone="info"
-        icon={<Navigation aria-hidden size={28} />}
-        eyebrow="거리 안내"
-        title={`이동 거리 약 ${Math.round(meters)} m`}
-        description={`다음 안내 지점: ${nextAnnouncement} m`}
-      />
+      <div className="flex items-center justify-between gap-3 rounded-2xl border-2 border-foreground bg-card px-4 py-3">
+        <p className="text-lg font-extrabold">
+          {Math.round(meters)} m · 다음 안내 {nextAnnouncement} m
+        </p>
+        <button type="button" className="btn-secondary min-h-12 px-3"
+          onClick={() => setVoiceOn((v) => !v)}
+          aria-label={voiceOn ? "음성 안내 끄기" : "음성 안내 켜기"}>
+          {voiceOn ? <Mic aria-hidden size={22} /> : <MicOff aria-hidden size={22} />}
+          {voiceOn ? "음성 켜짐" : "음성 꺼짐"}
+        </button>
+      </div>
+
+      <button type="button" className="btn-secondary"
+        onClick={() => navigate({ to: "/report-hazard" })}
+        aria-label="위험 신고 화면으로 이동">
+        <AlertTriangle aria-hidden size={22} /> 공사 및 위험 신고
+      </button>
 
       <section aria-label="근처 위험 안내" className="space-y-3">
         <h2 className="text-xl font-extrabold">근처 위험 (100m)</h2>
