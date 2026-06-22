@@ -240,21 +240,47 @@ export const endWalk = createServerFn({ method: "POST" })
 // ---------- ONETOUCH ----------
 
 export const createOnetouchHandoff = createServerFn({ method: "POST" })
-  .inputValidator((i: { pickupEntranceCode: string }) => i)
+  .inputValidator((i: { pickupEntranceCode: string; dropoffEntranceCode?: string | null }) => i)
   .handler(async ({ data }) => {
     const me = await requireApproved();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: ent } = await supabaseAdmin
+    const { data: pickupEnt } = await supabaseAdmin
       .from("entrances").select("id").eq("code", data.pickupEntranceCode).maybeSingle();
-    if (!ent) throw new Error("픽업 입구를 찾을 수 없습니다.");
+    if (!pickupEnt) throw new Error("픽업 입구를 찾을 수 없습니다.");
+    let dropoff_entrance_id: string | null = null;
+    if (data.dropoffEntranceCode) {
+      const { data: dEnt } = await supabaseAdmin
+        .from("entrances").select("id").eq("code", data.dropoffEntranceCode).maybeSingle();
+      if (!dEnt) throw new Error("도착 입구를 찾을 수 없습니다.");
+      dropoff_entrance_id = dEnt.id;
+    }
     const handoff_token =
       Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) =>
         b.toString(16).padStart(2, "0")).join("");
     const { error } = await supabaseAdmin.from("onetouch_handoffs").insert({
-      user_id: me.id, pickup_entrance_id: ent.id, handoff_token, status: "CREATED",
+      user_id: me.id, pickup_entrance_id: pickupEnt.id, dropoff_entrance_id,
+      handoff_token, status: "CREATED",
     });
     if (error) throw new Error(error.message);
     return { handoff_token };
+  });
+
+// ---------- SETTINGS ----------
+
+export const updateMyShareMode = createServerFn({ method: "POST" })
+  .inputValidator((i: { mode: "PRIVATE" | "FRIENDS" | "PUBLIC" }) => {
+    if (!["PRIVATE", "FRIENDS", "PUBLIC"].includes(i.mode)) throw new Error("잘못된 공개 범위");
+    return i;
+  })
+  .handler(async ({ data }) => {
+    const me = await requireUser();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("app_users")
+      .update({ default_share_mode: data.mode })
+      .eq("id", me.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 // ---------- HAZARDS ----------
