@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { LogIn, UserPlus } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/walk/AppShell";
@@ -19,17 +19,20 @@ function AuthScreen() {
   const [pin2, setPin2] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const pinRef = useRef<HTMLInputElement>(null);
   const loginFn = useServerFn(login);
   const signupFn = useServerFn(signup);
   const invalidate = useInvalidateMe();
   const navigate = useNavigate();
 
   async function handleAuthSubmit() {
-    const cleanName = name.trim();
-    const cleanPhone = phone.trim();
-    const cleanPin = pin.trim();
-    if (!cleanPhone || !cleanPin || (mode === "signup" && !cleanName)) {
-      setErr(mode === "login" ? "전화번호와 비밀번호를 입력해 주세요." : "이름, 전화번호, 비밀번호를 모두 입력해 주세요.");
+    const cleanName = (nameRef.current?.value ?? name).trim();
+    const cleanPhone = (phoneRef.current?.value ?? phone).trim();
+    const cleanPin = (pinRef.current?.value ?? pin).trim();
+    if (!cleanName || !cleanPhone || !cleanPin) {
+      setErr("이름, 전화번호, 비밀번호를 모두 입력해 주세요.");
       return;
     }
     setErr(null); setBusy(true);
@@ -84,14 +87,16 @@ function AuthScreen() {
       </div>
 
       <form id="auth-form" className="space-y-3" onSubmit={submit}>
-        <Field id="name" label="이름" value={name} onChange={setName} autoComplete="name" />
+        <Field id="name" ref={nameRef} label="이름" value={name} onChange={setName} autoComplete="name" />
         <Field
           id="phone" label="전화번호" value={phone} onChange={setPhone}
+          ref={phoneRef}
           type="tel" autoComplete="tel" inputMode="numeric"
           hint="숫자만 입력해도 됩니다. 예: 01012345678"
         />
         <Field
           id="pin" label="비밀번호 (4자리 숫자)" value={pin} onChange={setPin}
+          ref={pinRef}
           type="password" inputMode="numeric" maxLength={4}
           autoComplete={mode === "login" ? "current-password" : "new-password"}
         />
