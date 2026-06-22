@@ -1,9 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { LogIn, UserPlus, Mail } from "lucide-react";
+import { LogIn, UserPlus } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/walk/AppShell";
-import { StatusCard } from "@/components/walk/StatusCard";
 import { login, signup } from "@/lib/namsan.functions";
 import { useInvalidateMe } from "@/hooks/useMe";
 
