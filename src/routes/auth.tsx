@@ -61,13 +61,6 @@ function AuthScreen() {
         </button>
       }
     >
-      <StatusCard
-        tone="info"
-        icon={<Mail aria-hidden size={28} />}
-        eyebrow="안내"
-        title="승인된 사용자만 사용할 수 있어요"
-        description="회원가입 후 관리자의 승인이 필요합니다. 위치 공유 기본값은 비공개입니다."
-      />
 
       <div role="tablist" aria-label="로그인 또는 회원가입 선택"
         className="grid grid-cols-2 gap-2 rounded-2xl border-2 border-foreground bg-muted p-1">
