@@ -26,14 +26,25 @@ function AuthScreen() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    const cleanName = name.trim();
+    const cleanPhone = phone.trim();
+    const cleanPin = pin.trim();
+    if (!cleanName || !cleanPhone || !cleanPin) {
+      setErr("이름, 전화번호, 비밀번호를 모두 입력해 주세요.");
+      return;
+    }
     setErr(null); setBusy(true);
     try {
       if (mode === "login") {
-        const r = await loginFn({ data: { name, phone, pin } });
+        const r = await loginFn({ data: { name: cleanName, phone: cleanPhone, pin: cleanPin } });
+        if (r.error || !r.user) {
+          setErr(r.error ?? "로그인에 실패했습니다.");
+          return;
+        }
         await invalidate();
         navigate({ to: r.user.status === "APPROVED" ? "/" : "/auth/pending" });
       } else {
-        await signupFn({ data: { name, phone, pin, pinConfirm: pin2 } });
+        await signupFn({ data: { name: cleanName, phone: cleanPhone, pin: cleanPin, pinConfirm: pin2.trim() } });
         await invalidate();
         navigate({ to: "/auth/pending" });
       }
