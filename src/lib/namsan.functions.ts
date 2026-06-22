@@ -3,8 +3,10 @@
 // All server-only modules are loaded inside .handler() to keep the client bundle clean.
 import { createServerFn } from "@tanstack/react-start";
 import {
+  deleteCookie,
+  getCookie,
   getRequestHeader,
-  setResponseHeader,
+  setCookie,
 } from "@tanstack/react-start/server";
 
 // ---------- AUTH ----------
@@ -16,7 +18,7 @@ export const signup = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data }) => {
-    const { normalizePhone, isValidPin, hashPin, createSession, sessionCookieHeader, publicUser } =
+    const { normalizePhone, isValidPin, hashPin, createSession, SESSION_COOKIE, SESSION_TTL_SECONDS, publicUser } =
       await import("@/lib/namsan-auth.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -36,7 +38,13 @@ export const signup = createServerFn({ method: "POST" })
     if (error || !user) throw new Error(error?.message ?? "가입 실패");
 
     const token = await createSession(user.id);
-    setResponseHeader("set-cookie", sessionCookieHeader(token));
+    setCookie(SESSION_COOKIE, token, {
+      path: "/",
+      maxAge: SESSION_TTL_SECONDS,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
     return { user: publicUser(user) };
   });
 
@@ -44,7 +52,7 @@ export const login = createServerFn({ method: "POST" })
   .inputValidator((input: { name: string; phone: string; pin: string }) => input)
   .handler(async ({ data }) => {
     const {
-      normalizePhone, isValidPin, verifyPin, createSession, sessionCookieHeader, publicUser,
+      normalizePhone, isValidPin, verifyPin, createSession, SESSION_COOKIE, SESSION_TTL_SECONDS, publicUser,
     } = await import("@/lib/namsan-auth.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -65,23 +73,29 @@ export const login = createServerFn({ method: "POST" })
     if (user.status === "SUSPENDED") return { user: null, error: "사용이 정지된 계정입니다. 관리자에게 문의하세요." };
 
     const token = await createSession(user.id);
-    setResponseHeader("set-cookie", sessionCookieHeader(token));
+    setCookie(SESSION_COOKIE, token, {
+      path: "/",
+      maxAge: SESSION_TTL_SECONDS,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
     return { user: publicUser(user), error: null };
   });
 
 export const logout = createServerFn({ method: "POST" }).handler(async () => {
-  const { getSessionTokenFromCookie, revokeToken, clearSessionCookieHeader } =
+  const { SESSION_COOKIE, getSessionTokenFromCookie, revokeToken } =
     await import("@/lib/namsan-auth.server");
-  const token = getSessionTokenFromCookie(getRequestHeader("cookie"));
+  const token = getCookie(SESSION_COOKIE) ?? getSessionTokenFromCookie(getRequestHeader("cookie"));
   await revokeToken(token);
-  setResponseHeader("set-cookie", clearSessionCookieHeader());
+  deleteCookie(SESSION_COOKIE, { path: "/" });
   return { ok: true };
 });
 
 export const getMe = createServerFn({ method: "GET" }).handler(async () => {
-  const { getSessionTokenFromCookie, userFromToken, publicUser } =
+  const { SESSION_COOKIE, getSessionTokenFromCookie, userFromToken, publicUser } =
     await import("@/lib/namsan-auth.server");
-  const token = getSessionTokenFromCookie(getRequestHeader("cookie"));
+  const token = getCookie(SESSION_COOKIE) ?? getSessionTokenFromCookie(getRequestHeader("cookie"));
   const user = await userFromToken(token);
   return { user: user ? publicUser(user) : null };
 });
