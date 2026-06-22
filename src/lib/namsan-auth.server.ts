@@ -6,8 +6,9 @@ import type { Database } from "@/integrations/supabase/types";
 
 export type AppUser = Database["public"]["Tables"]["app_users"]["Row"];
 
-const SESSION_COOKIE = "nw_session";
+export const SESSION_COOKIE = "nw_session";
 const SESSION_TTL_DAYS = 30;
+export const SESSION_TTL_SECONDS = SESSION_TTL_DAYS * 86400;
 
 export function normalizePhone(input: string): string {
   return (input ?? "").replace(/\D/g, "");
