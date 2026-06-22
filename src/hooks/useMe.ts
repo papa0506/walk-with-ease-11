@@ -25,8 +25,8 @@ export function useMe() {
 
 export function useInvalidateMe() {
   const qc = useQueryClient();
-  return (user?: Exclude<Me, null>) => {
-    if (user) qc.setQueryData(["me"], user);
+  return (user?: unknown) => {
+    if (user) qc.setQueryData<Me>(["me"], user as Me);
     return qc.invalidateQueries({ queryKey: ["me"] });
   };
 }
