@@ -1,18 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
-  Footprints, PhoneCall, ChevronRight, LogIn, LogOut, ShieldCheck, ShieldAlert,
+  Footprints, PhoneCall, ChevronRight, LogIn, LogOut, ShieldAlert,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/walk/AppShell";
-import { StatusCard } from "@/components/walk/StatusCard";
 import { useMe, useInvalidateMe } from "@/hooks/useMe";
 import { logout } from "@/lib/namsan.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "남산 산책 동반자 (비공개 RC)" },
-      { name: "description", content: "시각장애인을 위한 음성 안내 산책 동반자 — 비공개 릴리즈 후보" },
+      { title: "남산 산책 동반자" },
+      { name: "description", content: "시각장애인을 위한 음성 안내 산책 동반자" },
     ],
   }),
   component: Home,
@@ -45,6 +44,17 @@ function Home() {
     </Link>
   );
 
+  const handleOnetouch = (e: React.MouseEvent) => {
+    if (!me) {
+      e.preventDefault();
+      alert("원터치 복지콜은 로그인 후 관리자 승인을 받은 사용자만 사용할 수 있습니다. 먼저 로그인해 주세요.");
+      navigate({ to: "/auth" });
+    } else if (!isApproved) {
+      e.preventDefault();
+      alert("원터치 복지콜은 관리자 승인 후 사용할 수 있습니다. 현재 상태: 승인 대기 중.");
+    }
+  };
+
   return (
     <AppShell
       title={me ? `${me.name}님,\n오늘도 안전하게 걸어요` : "남산 산책 동반자"}
@@ -55,24 +65,6 @@ function Home() {
         </Link>
       }
     >
-      {me ? (
-        <StatusCard
-          tone={isApproved ? "success" : "warning"}
-          icon={<ShieldCheck aria-hidden="true" size={28} />}
-          eyebrow="계정 상태"
-          title={isApproved ? "승인됨 — 모든 기능 사용 가능" : "승인 대기 중 — 기본 산책 안내는 사용할 수 있습니다"}
-          description={`${me.name} · ${me.phone_masked} · ${me.role}`}
-        />
-      ) : (
-        <StatusCard
-          tone="info"
-          icon={<ShieldCheck aria-hidden="true" size={28} />}
-          eyebrow="비공개 릴리즈 후보"
-          title="현장 테스트 전용 버전입니다"
-          description="기본 산책 안내·위험 신고는 로그인 없이 사용할 수 있습니다. 원터치 복지콜·친구 찾기는 승인 후 사용 가능합니다."
-        />
-      )}
-
       <nav aria-label="주요 메뉴" className="space-y-3">
         <MenuRow
           to="/walk/start"
@@ -81,10 +73,11 @@ function Home() {
           subtitle="경로를 고르고 음성 안내를 시작합니다"
         />
         <MenuRow
-          to={isApproved ? "/onetouch" : "/auth"}
+          to="/onetouch"
+          onClick={handleOnetouch}
           icon={<PhoneCall aria-hidden size={28} />}
-          title="원터치 복지콜 (보조)"
-          subtitle={isApproved ? "산책 중 화면에서 주로 사용합니다" : "관리자 승인 후 사용할 수 있습니다"}
+          title="원터치 복지콜"
+          subtitle={isApproved ? "산책 중 화면에서 주로 사용합니다" : "로그인·승인 후 사용할 수 있습니다"}
         />
         {isAdmin && (
           <MenuRow to="/admin" icon={<ShieldAlert aria-hidden size={28} />} title="관리자" subtitle="가입 승인 · 현장 측량 · 입구/거리표지 보정" />
@@ -95,10 +88,10 @@ function Home() {
 }
 
 function MenuRow({
-  to, icon, title, subtitle,
-}: { to: string; icon: React.ReactNode; title: string; subtitle: string }) {
+  to, icon, title, subtitle, onClick,
+}: { to: string; icon: React.ReactNode; title: string; subtitle: string; onClick?: (e: React.MouseEvent) => void }) {
   return (
-    <Link to={to} className="status-card flex items-center gap-4" aria-label={`${title}. ${subtitle}`}>
+    <Link to={to} onClick={onClick} className="status-card flex items-center gap-4" aria-label={`${title}. ${subtitle}`}>
       <div aria-hidden className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border-2 border-foreground bg-muted">
         {icon}
       </div>

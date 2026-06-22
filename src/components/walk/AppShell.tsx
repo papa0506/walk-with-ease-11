@@ -13,13 +13,7 @@ interface Props {
 export function AppShell({ title, back, children, bottomAction, topRight }: Props) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-background">
-      <div
-        role="note"
-        aria-label="비공개 릴리즈 후보 버전"
-        className="border-b-2 border-foreground bg-secondary px-4 py-2 text-center text-sm font-bold text-secondary-foreground"
-      >
-        비공개 릴리즈 후보 · 테스트 전용
-      </div>
+
 
       <header className="px-5 pb-3 pt-5">
         {back ? (
