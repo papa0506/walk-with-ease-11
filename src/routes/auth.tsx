@@ -43,10 +43,12 @@ function AuthScreen() {
           setErr(r.error ?? "로그인에 실패했습니다.");
           return;
         }
+        window.localStorage.setItem("nw_session_token", r.sessionToken);
         await invalidate(r.user);
         navigate({ to: r.user.status === "APPROVED" ? "/" : "/auth/pending" });
       } else {
-        await signupFn({ data: { name: cleanName, phone: cleanPhone, pin: cleanPin, pinConfirm: pin2.trim() } });
+        const r = await signupFn({ data: { name: cleanName, phone: cleanPhone, pin: cleanPin, pinConfirm: pin2.trim() } });
+        window.localStorage.setItem("nw_session_token", r.sessionToken);
         await invalidate();
         navigate({ to: "/auth/pending" });
       }
