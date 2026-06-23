@@ -111,10 +111,8 @@ export const getMe = createServerFn({ method: "GET" }).handler(async () => {
 
 // ---------- Helper: require user / admin ----------
 async function requireUser() {
-  const { getSessionTokenFromCookie, userFromToken } = await import(
-    "@/lib/namsan-auth.server"
-  );
-  const token = getSessionTokenFromCookie(getRequestHeader("cookie"));
+  const { userFromToken } = await import("@/lib/namsan-auth.server");
+  const token = await sessionTokenFromRequest();
   const user = await userFromToken(token);
   if (!user) throw new Error("로그인이 필요합니다.");
   return user;
@@ -335,9 +333,9 @@ export const reportHazard = createServerFn({ method: "POST" })
     route_meter?: number | null;
   }) => i)
   .handler(async ({ data }) => {
-    const { getSessionTokenFromCookie, userFromToken } = await import("@/lib/namsan-auth.server");
+    const { userFromToken } = await import("@/lib/namsan-auth.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const user = await userFromToken(getSessionTokenFromCookie(getRequestHeader("cookie")));
+    const user = await userFromToken(await sessionTokenFromRequest());
     const reporter_type = !user ? "ANONYMOUS" : user.role === "ADMIN" ? "ADMIN" : "USER";
     const subtype = data.type === "CONSTRUCTION" ? (data.subtype ?? "TEMP") : null;
     const expires_at = computeExpiresAt(data.type, subtype);
