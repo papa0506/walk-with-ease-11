@@ -9,6 +9,17 @@ import {
   setCookie,
 } from "@tanstack/react-start/server";
 
+const SESSION_COOKIE_NAME = "nw_session";
+
+async function sessionTokenFromRequest(): Promise<string | null> {
+  const { getSessionTokenFromCookie } = await import("@/lib/namsan-auth.server");
+  return (
+    getCookie(SESSION_COOKIE_NAME)
+    ?? getRequestHeader("x-nw-session")
+    ?? getSessionTokenFromCookie(getRequestHeader("cookie"))
+  );
+}
+
 // ---------- AUTH ----------
 
 export const signup = createServerFn({ method: "POST" })
@@ -87,7 +98,7 @@ export const logout = createServerFn({ method: "POST" }).handler(async () => {
   const { revokeToken } = await import("@/lib/namsan-auth.server");
   const token = await sessionTokenFromRequest();
   await revokeToken(token);
-  deleteCookie(SESSION_COOKIE, { path: "/" });
+  deleteCookie(SESSION_COOKIE_NAME, { path: "/" });
   return { ok: true };
 });
 
