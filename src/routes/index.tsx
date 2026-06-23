@@ -29,7 +29,12 @@ function Home() {
   const topRight = me ? (
     <button
       type="button"
-      onClick={async () => { await logoutFn(); await invalidate(); navigate({ to: "/" }); }}
+      onClick={async () => {
+        await logoutFn();
+        window.localStorage.removeItem("nw_session_token");
+        await invalidate();
+        navigate({ to: "/" });
+      }}
       className="inline-flex min-h-11 items-center gap-1 rounded-xl border-2 border-foreground bg-background px-3 text-sm font-extrabold"
       aria-label="로그아웃"
     >

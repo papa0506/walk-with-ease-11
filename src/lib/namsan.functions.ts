@@ -9,6 +9,17 @@ import {
   setCookie,
 } from "@tanstack/react-start/server";
 
+const SESSION_COOKIE_NAME = "nw_session";
+
+async function sessionTokenFromRequest(): Promise<string | null> {
+  const { getSessionTokenFromCookie } = await import("@/lib/namsan-auth.server");
+  return (
+    getCookie(SESSION_COOKIE_NAME)
+    ?? getRequestHeader("x-nw-session")
+    ?? getSessionTokenFromCookie(getRequestHeader("cookie"))
+  );
+}
+
 // ---------- AUTH ----------
 
 export const signup = createServerFn({ method: "POST" })
@@ -45,7 +56,7 @@ export const signup = createServerFn({ method: "POST" })
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
     });
-    return { user: publicUser(user) };
+    return { user: publicUser(user), sessionToken: token };
   });
 
 export const login = createServerFn({ method: "POST" })
@@ -80,32 +91,28 @@ export const login = createServerFn({ method: "POST" })
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
     });
-    return { user: publicUser(user), error: null };
+    return { user: publicUser(user), sessionToken: token, error: null };
   });
 
 export const logout = createServerFn({ method: "POST" }).handler(async () => {
-  const { SESSION_COOKIE, getSessionTokenFromCookie, revokeToken } =
-    await import("@/lib/namsan-auth.server");
-  const token = getCookie(SESSION_COOKIE) ?? getSessionTokenFromCookie(getRequestHeader("cookie"));
+  const { revokeToken } = await import("@/lib/namsan-auth.server");
+  const token = await sessionTokenFromRequest();
   await revokeToken(token);
-  deleteCookie(SESSION_COOKIE, { path: "/" });
+  deleteCookie(SESSION_COOKIE_NAME, { path: "/" });
   return { ok: true };
 });
 
 export const getMe = createServerFn({ method: "GET" }).handler(async () => {
-  const { SESSION_COOKIE, getSessionTokenFromCookie, userFromToken, publicUser } =
-    await import("@/lib/namsan-auth.server");
-  const token = getCookie(SESSION_COOKIE) ?? getSessionTokenFromCookie(getRequestHeader("cookie"));
+  const { userFromToken, publicUser } = await import("@/lib/namsan-auth.server");
+  const token = await sessionTokenFromRequest();
   const user = await userFromToken(token);
   return { user: user ? publicUser(user) : null };
 });
 
 // ---------- Helper: require user / admin ----------
 async function requireUser() {
-  const { getSessionTokenFromCookie, userFromToken } = await import(
-    "@/lib/namsan-auth.server"
-  );
-  const token = getSessionTokenFromCookie(getRequestHeader("cookie"));
+  const { userFromToken } = await import("@/lib/namsan-auth.server");
+  const token = await sessionTokenFromRequest();
   const user = await userFromToken(token);
   if (!user) throw new Error("로그인이 필요합니다.");
   return user;
@@ -326,9 +333,9 @@ export const reportHazard = createServerFn({ method: "POST" })
     route_meter?: number | null;
   }) => i)
   .handler(async ({ data }) => {
-    const { getSessionTokenFromCookie, userFromToken } = await import("@/lib/namsan-auth.server");
+    const { userFromToken } = await import("@/lib/namsan-auth.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const user = await userFromToken(getSessionTokenFromCookie(getRequestHeader("cookie")));
+    const user = await userFromToken(await sessionTokenFromRequest());
     const reporter_type = !user ? "ANONYMOUS" : user.role === "ADMIN" ? "ADMIN" : "USER";
     const subtype = data.type === "CONSTRUCTION" ? (data.subtype ?? "TEMP") : null;
     const expires_at = computeExpiresAt(data.type, subtype);
