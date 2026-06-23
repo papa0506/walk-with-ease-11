@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { forwardRef, useRef, useState } from "react";
-import { LogIn, UserPlus } from "lucide-react";
+import { LogIn, UserPlus, ArrowLeft } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/walk/AppShell";
 import { login, signup } from "@/lib/namsan.functions";
@@ -68,26 +68,7 @@ function AuthScreen() {
     <AppShell
       title={mode === "login" ? "로그인" : "회원가입"}
       back={{ to: "/" }}
-      bottomAction={
-        <button
-          type="button"
-          onClick={() => void handleAuthSubmit()}
-          className="btn-primary"
-          disabled={busy}
-          aria-label={mode === "login" ? "로그인" : "회원가입 요청"}
-        >
-          {mode === "login" ? <LogIn aria-hidden size={28} /> : <UserPlus aria-hidden size={28} />}
-          {busy ? "처리 중..." : mode === "login" ? "로그인" : "회원가입 요청"}
-        </button>
-      }
     >
-
-      <div role="tablist" aria-label="로그인 또는 회원가입 선택"
-        className="grid grid-cols-2 gap-2 rounded-2xl border-2 border-foreground bg-muted p-1">
-        <TabBtn active={mode === "login"} onClick={() => setMode("login")}>로그인</TabBtn>
-        <TabBtn active={mode === "signup"} onClick={() => setMode("signup")}>회원가입</TabBtn>
-      </div>
-
       <form id="auth-form" className="space-y-3" onSubmit={submit}>
         <Field id="name" ref={nameRef} label="이름" value={name} onChange={setName} autoComplete="name" />
         <Field
@@ -108,6 +89,7 @@ function AuthScreen() {
             type="password" inputMode="numeric" maxLength={4} autoComplete="new-password"
           />
         )}
+
         <div role="alert" aria-live="assertive" aria-atomic="true" className="min-h-[1px]">
           {err && (
             <p className="rounded-xl border-2 border-foreground bg-[var(--danger)] px-4 py-3 text-lg font-bold text-[var(--danger-foreground)]">
@@ -115,18 +97,40 @@ function AuthScreen() {
             </p>
           )}
         </div>
+
+        <button
+          type="submit"
+          className="btn-primary w-full"
+          disabled={busy}
+          aria-label={mode === "login" ? "로그인" : "회원가입 요청"}
+        >
+          {mode === "login" ? <LogIn aria-hidden size={28} /> : <UserPlus aria-hidden size={28} />}
+          {busy ? "처리 중..." : mode === "login" ? "로그인" : "회원가입 요청"}
+        </button>
+
+        {mode === "login" ? (
+          <button
+            type="button"
+            onClick={() => { setMode("signup"); setErr(null); }}
+            className="w-full rounded-xl border-2 border-foreground bg-muted py-3 text-lg font-extrabold text-foreground"
+            aria-label="회원가입"
+          >
+            <UserPlus aria-hidden size={22} className="inline mr-2" />
+            회원가입
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => { setMode("login"); setErr(null); }}
+            className="w-full rounded-xl border-2 border-foreground bg-muted py-3 text-lg font-extrabold text-foreground"
+            aria-label="로그인으로 돌아가기"
+          >
+            <ArrowLeft aria-hidden size={22} className="inline mr-2" />
+            로그인으로 돌아가기
+          </button>
+        )}
       </form>
     </AppShell>
-  );
-}
-
-function TabBtn({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
-  return (
-    <button type="button" role="tab" aria-selected={active} onClick={onClick}
-      className="min-h-14 rounded-xl text-lg font-extrabold"
-      style={active ? { background: "var(--foreground)", color: "var(--background)" } : { background: "transparent", color: "var(--foreground)" }}>
-      {children}
-    </button>
   );
 }
 
