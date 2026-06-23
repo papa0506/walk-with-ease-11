@@ -45,7 +45,7 @@ export const signup = createServerFn({ method: "POST" })
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
     });
-    return { user: publicUser(user) };
+    return { user: publicUser(user), sessionToken: token };
   });
 
 export const login = createServerFn({ method: "POST" })
@@ -80,22 +80,20 @@ export const login = createServerFn({ method: "POST" })
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
     });
-    return { user: publicUser(user), error: null };
+    return { user: publicUser(user), sessionToken: token, error: null };
   });
 
 export const logout = createServerFn({ method: "POST" }).handler(async () => {
-  const { SESSION_COOKIE, getSessionTokenFromCookie, revokeToken } =
-    await import("@/lib/namsan-auth.server");
-  const token = getCookie(SESSION_COOKIE) ?? getSessionTokenFromCookie(getRequestHeader("cookie"));
+  const { revokeToken } = await import("@/lib/namsan-auth.server");
+  const token = await sessionTokenFromRequest();
   await revokeToken(token);
   deleteCookie(SESSION_COOKIE, { path: "/" });
   return { ok: true };
 });
 
 export const getMe = createServerFn({ method: "GET" }).handler(async () => {
-  const { SESSION_COOKIE, getSessionTokenFromCookie, userFromToken, publicUser } =
-    await import("@/lib/namsan-auth.server");
-  const token = getCookie(SESSION_COOKIE) ?? getSessionTokenFromCookie(getRequestHeader("cookie"));
+  const { userFromToken, publicUser } = await import("@/lib/namsan-auth.server");
+  const token = await sessionTokenFromRequest();
   const user = await userFromToken(token);
   return { user: user ? publicUser(user) : null };
 });
