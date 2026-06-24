@@ -439,6 +439,71 @@ export const adminUpdateHazard = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+
+// ---------- LANDMARKS ----------
+
+export const nearbyLandmarks = createServerFn({ method: "POST" })
+  .inputValidator((i: { lat: number; lng: number; radiusM?: number }) => i)
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("landmarks")
+      .select("id,name,type,custom_name,announcement,direction_hint,side,route_meter,lat,lng")
+      .eq("verified", true);
+    if (error) throw new Error(error.message);
+    const R = data.radiusM ?? 35;
+    return (rows ?? []).filter((lm: { lat: number | null; lng: number | null }) => {
+      if (lm.lat == null || lm.lng == null) return false;
+      return haversine(data.lat, data.lng, lm.lat, lm.lng) <= R;
+    });
+  });
+
+// ---------- LOCATION SHARING ----------
+
+export const upsertMyLocation = createServerFn({ method: "POST" })
+  .inputValidator((i: { lat: number; lng: number; accuracy: number; walkSessionId?: string | null }) => i)
+  .handler(async ({ data }) => {
+    const me = await requireApproved();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("walk_locations").upsert({
+      user_id: me.id,
+      lat: data.lat,
+      lng: data.lng,
+      accuracy: data.accuracy,
+      walk_session_id: data.walkSessionId ?? null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const getNearbyWalkers = createServerFn({ method: "POST" })
+  .inputValidator((i: { lat: number; lng: number; radiusM?: number }) => i)
+  .handler(async ({ data }) => {
+    const me = await requireUser();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const cutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: rows, error } = await supabaseAdmin
+      .from("walk_locations")
+      .select("user_id, lat, lng, accuracy, updated_at, app_users!inner(name, default_share_mode)")
+      .neq("user_id", me.id)
+      .gt("updated_at", cutoff);
+    if (error) throw new Error(error.message);
+    const R = data.radiusM ?? 150;
+    type WalkRow = { user_id: string; lat: number | null; lng: number | null; app_users: { name: string; default_share_mode: string } };
+    return (rows as unknown as WalkRow[] ?? [])
+      .filter((r) => {
+        if (r.app_users.default_share_mode === "PRIVATE") return false;
+        if (r.lat == null || r.lng == null) return false;
+        return haversine(data.lat, data.lng, r.lat, r.lng) <= R;
+      })
+      .map((r) => ({
+        userId: r.user_id,
+        name: r.app_users.name,
+        distance: Math.round(haversine(data.lat, data.lng, r.lat!, r.lng!)),
+      }));
+  });
+
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371000;
   const toRad = (d: number) => (d * Math.PI) / 180;
