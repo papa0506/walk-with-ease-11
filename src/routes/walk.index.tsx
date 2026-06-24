@@ -8,6 +8,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { AppShell } from "@/components/walk/AppShell";
 import { useMe } from "@/hooks/useMe";
+import { useAudioAnnouncer } from "@/hooks/useAudioAnnouncer";
 import {
   endWalk, nearbyHazards, hazardFeedback,
   nearbyLandmarks, upsertMyLocation,
@@ -23,77 +24,71 @@ export const Route = createFileRoute("/walk/")({
 });
 
 // ── 타입 ─────────────────────────────────────────────────
-type Coords = { lat: number; lng: number; acc: number; heading: number | null };
-
+type Coords     = { lat: number; lng: number; acc: number; heading: number | null };
 type HazardLite = {
   id: string; type: string; label: string | null; side: string;
   description: string | null; lat: number | null; lng: number | null;
   verified: boolean; verification_status: string; reporter_type: string;
   expires_at: string | null;
 };
-
 type LandmarkLite = {
   id: string; name: string; type: string | null; custom_name: string | null;
   announcement: string | null; direction_hint: string | null;
   side: string; route_meter: number | null;
 };
-
 type RouteWalker = {
   userId: string; name: string;
-  distance: number | null;    // 내 위치에서 미터 (GPS 없으면 null)
+  distance: number | null;
   updatedSecsAgo: number;
 };
 
 // ── GPS 설정 ─────────────────────────────────────────────
-const GPS_ALPHA       = 0.25;  // EMA 계수 (낮을수록 더 부드러움)
-const GPS_MAX_ACC     = 50;    // 50m 초과 무시
-const GPS_MIN_DIST    = 2;     // 2m 미만 노이즈 무시
-const RECENT_BUF_SIZE = 6;     // 최근 N개 샘플로 보조 평균 계산
+const GPS_ALPHA    = 0.25;
+const GPS_MAX_ACC  = 50;
+const GPS_MIN_DIST = 2;
+const BUF_SIZE     = 6;
 
-// 추적 알림 임계값 (단위: m) — 다가올 때만 발동
+// 추적 알림 임계값(m)
 const TRACK_THRESHOLDS = [500, 200, 100, 50, 20];
 
 // ── 유틸 ─────────────────────────────────────────────────
-function haversine(la1: number, lo1: number, la2: number, lo2: number) {
-  const R = 6371000, r = (d: number) => (d * Math.PI) / 180;
+function hav(la1: number, lo1: number, la2: number, lo2: number) {
+  const R = 6371000, r = (d: number) => d * Math.PI / 180;
   const a = Math.sin(r(la2 - la1) / 2) ** 2 +
     Math.cos(r(la1)) * Math.cos(r(la2)) * Math.sin(r(lo2 - lo1) / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
 }
-
-function smoothCoords(prev: Coords | null, next: Coords): Coords {
+function smooth(prev: Coords | null, next: Coords): Coords {
   if (!prev) return next;
-  return {
-    lat: prev.lat + GPS_ALPHA * (next.lat - prev.lat),
-    lng: prev.lng + GPS_ALPHA * (next.lng - prev.lng),
-    acc: next.acc,
-    heading: next.heading,
-  };
+  return { lat: prev.lat + GPS_ALPHA * (next.lat - prev.lat),
+           lng: prev.lng + GPS_ALPHA * (next.lng - prev.lng),
+           acc: next.acc, heading: next.heading };
 }
-
-/** 최근 버퍼에서 정확도 가중 평균 보조 계산 */
-function bufferAvg(buf: { lat: number; lng: number; acc: number }[]): { lat: number; lng: number } | null {
-  const good = buf.filter(r => r.acc <= GPS_MAX_ACC);
-  if (good.length === 0) return null;
-  let wSum = 0, latS = 0, lngS = 0;
-  for (const r of good) { const w = 1 / (r.acc * r.acc); wSum += w; latS += r.lat * w; lngS += r.lng * w; }
-  return { lat: latS / wSum, lng: lngS / wSum };
+function bufAvg(buf: { lat: number; lng: number; acc: number }[]) {
+  const g = buf.filter(r => r.acc <= GPS_MAX_ACC);
+  if (!g.length) return null;
+  let w = 0, la = 0, lo = 0;
+  for (const r of g) { const ww = 1 / (r.acc * r.acc); w += ww; la += r.lat * ww; lo += r.lng * ww; }
+  return { lat: la / w, lng: lo / w };
 }
-
-function sideLabel(side: string) {
-  switch (side) {
-    case "LEFT": return "진행 방향 왼쪽";
-    case "RIGHT": return "진행 방향 오른쪽";
-    case "FRONT": return "정면";
-    case "BOTH": return "양쪽";
-    case "ALL": return "길 전체";
-    default: return "근처";
-  }
+function sideLabel(s: string) {
+  return s === "LEFT" ? "진행 방향 왼쪽"
+       : s === "RIGHT" ? "진행 방향 오른쪽"
+       : s === "FRONT" ? "정면"
+       : s === "BOTH"  ? "양쪽"
+       : s === "ALL"   ? "길 전체" : "근처";
 }
+function secsAgo(s: number) { return s < 60 ? `${s}초 전` : `${Math.round(s / 60)}분 전`; }
 
-function secsToText(s: number) {
-  if (s < 60) return `${s}초 전`;
-  return `${Math.round(s / 60)}분 전`;
+// ── Wake Lock (화면 꺼짐 방지) ──────────────────────────
+async function requestWakeLock(): Promise<WakeLockSentinel | null> {
+  try {
+    if ("wakeLock" in navigator) {
+      return await (navigator as unknown as { wakeLock: { request: (t: string) => Promise<WakeLockSentinel> } })
+        .wakeLock.request("screen");
+    }
+  } catch { /* 지원 안 하는 기기 무시 */ }
+  return null;
 }
 
 // ── 컴포넌트 ─────────────────────────────────────────────
@@ -101,130 +96,92 @@ function WalkScreen() {
   const { data: me } = useMe();
   const { walkId }   = Route.useSearch();
   const navigate     = useNavigate();
+  const audio        = useAudioAnnouncer();
 
-  const endFn        = useServerFn(endWalk);
-  const nearbyFn     = useServerFn(nearbyHazards);
-  const feedbackFn   = useServerFn(hazardFeedback);
-  const landmarkFn   = useServerFn(nearbyLandmarks);
-  const upsertLocFn  = useServerFn(upsertMyLocation);
-  const nearWalkFn   = useServerFn(getNearbyWalkers);
-  const routeWalkFn  = useServerFn(getRouteWalkers);
+  const endFn       = useServerFn(endWalk);
+  const nearbyFn    = useServerFn(nearbyHazards);
+  const feedbackFn  = useServerFn(hazardFeedback);
+  const landmarkFn  = useServerFn(nearbyLandmarks);
+  const upsertLocFn = useServerFn(upsertMyLocation);
+  const routeWalkFn = useServerFn(getRouteWalkers);
 
-  const [permission, setPermission]       = useState<"idle"|"requested"|"granted"|"denied">("idle");
-  const [coords, setCoords]               = useState<Coords | null>(null);
-  const [voiceOn, setVoiceOn]             = useState(false);
-  const [meters, setMeters]               = useState(0);
-  const [hazards, setHazards]             = useState<HazardLite[]>([]);
-  const [routeWalkers, setRouteWalkers]   = useState<RouteWalker[]>([]);
-  const [showWalkers, setShowWalkers]     = useState(false);
-  const [trackedUser, setTrackedUser]     = useState<{ userId: string; name: string } | null>(null);
-  const [trackedDist, setTrackedDist]     = useState<number | null>(null);
+  const [permission,   setPermission]   = useState<"idle"|"requested"|"granted"|"denied">("idle");
+  const [coords,       setCoords]       = useState<Coords | null>(null);
+  const [meters,       setMeters]       = useState(0);
+  const [hazards,      setHazards]      = useState<HazardLite[]>([]);
+  const [routeWalkers, setRouteWalkers] = useState<RouteWalker[]>([]);
+  const [showWalkers,  setShowWalkers]  = useState(false);
+  const [trackedUser,  setTrackedUser]  = useState<{ userId: string; name: string } | null>(null);
+  const [trackedDist,  setTrackedDist]  = useState<number | null>(null);
 
-  // ref 모음
-  const watchId              = useRef<number | null>(null);
-  const smoothedPos          = useRef<Coords | null>(null);
-  const recentBuf            = useRef<{ lat: number; lng: number; acc: number }[]>([]);
-  const lastPos              = useRef<Coords | null>(null);
-  const lastHazardCheck      = useRef(0);
-  const lastLandmarkCheck    = useRef(0);
-  const lastLocationPush     = useRef(0);
-  const lastWalkersCheck     = useRef(0);
-  const announcedLandmarks   = useRef(new Set<string>());
-  const announcedNearby      = useRef(new Set<string>());
-  const trackThresholdsDone  = useRef(new Set<number>());   // 추적 알림 발동된 임계값
-  const lastTrackedDist      = useRef<number | null>(null);
+  const watchId           = useRef<number | null>(null);
+  const smoothedPos       = useRef<Coords | null>(null);
+  const recentBuf         = useRef<{ lat: number; lng: number; acc: number }[]>([]);
+  const lastPos           = useRef<Coords | null>(null);
+  const lastHazardCheck   = useRef(0);
+  const lastLandmarkCheck = useRef(0);
+  const lastLocPush       = useRef(0);
+  const lastWalkersCheck  = useRef(0);
+  const announcedLandmarks = useRef(new Set<string>());
+  const announcedNearby    = useRef(new Set<string>());
+  const trackedThresholds  = useRef(new Set<number>());
+  const lastTrackedDist    = useRef<number | null>(null);
+  const trackedUserRef     = useRef<{ userId: string; name: string } | null>(null);
+  const wakeLock           = useRef<WakeLockSentinel | null>(null);
 
-  // ── 음성 큐 ────────────────────────────────────────────
-  const voiceQueue   = useRef<string[]>([]);
-  const speakingRef  = useRef(false);
-
-  const flushQueue = useCallback(() => {
-    if (speakingRef.current || voiceQueue.current.length === 0) return;
-    const text = voiceQueue.current.shift()!;
-    speakingRef.current = true;
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "ko-KR"; u.rate = 1.1;
-    u.onend = () => { speakingRef.current = false; flushQueue(); };
-    u.onerror = () => { speakingRef.current = false; flushQueue(); };
-    window.speechSynthesis.speak(u);
-  }, []);
-
-  const speak = useCallback((text: string) => {
-    if (!voiceOn) return;
-    voiceQueue.current.push(text);
-    flushQueue();
-  }, [voiceOn, flushQueue]);
-
-  useEffect(() => {
-    if (!voiceOn) { window.speechSynthesis.cancel(); voiceQueue.current = []; speakingRef.current = false; }
-  }, [voiceOn]);
-
-  // ── 200m 안내 (버그 수정) ───────────────────────────────
+  // ── 200m 안내 ────────────────────────────────────────────
   const meterBucket = Math.floor(meters / 200);
   useEffect(() => {
-    if (!voiceOn || meters < 200) return;
-    const current = meterBucket * 200;
-    speak(`${current} 미터 지점입니다. 다음 안내는 ${current + 200} 미터.`);
+    if (!audio.voiceOn || meters < 200) return;
+    const cur = meterBucket * 200;
+    audio.announce(`${cur} 미터 지점입니다. 다음 안내는 ${cur + 200} 미터.`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meterBucket]);
 
-  // ── 추적 중인 사용자 거리 알림 ──────────────────────────
+  // ── 추적 거리 알림 ────────────────────────────────────────
   useEffect(() => {
-    if (!trackedUser || trackedDist == null || !voiceOn) return;
+    if (!trackedUser || trackedDist == null || !audio.voiceOn) return;
     const prev = lastTrackedDist.current;
     lastTrackedDist.current = trackedDist;
-
-    // 가까워지는 방향일 때만 발동
-    if (prev != null && trackedDist >= prev) return;
-
+    if (prev != null && trackedDist >= prev) return; // 멀어지는 중
     for (const th of TRACK_THRESHOLDS) {
-      if (trackedDist <= th && (prev == null || prev > th) && !trackThresholdsDone.current.has(th)) {
-        trackThresholdsDone.current.add(th);
-        speak(
+      if (trackedDist <= th && (prev == null || prev > th) && !trackedThresholds.current.has(th)) {
+        trackedThresholds.current.add(th);
+        audio.announce(
           th <= 20
             ? `${trackedUser.name}님을 곧 만납니다!`
-            : `${trackedUser.name}님과 ${th}미터 거리입니다.`
+            : `${trackedUser.name}님과 ${th}미터 거리입니다.`,
+          { urgent: th <= 100 }
         );
         break;
       }
     }
-    // 멀어지면 임계값 리셋 (다시 가까워질 때 재알림)
-    TRACK_THRESHOLDS.forEach(th => {
-      if (trackedDist > th + 30) trackThresholdsDone.current.delete(th);
-    });
-  }, [trackedDist, trackedUser, voiceOn, speak]);
+    TRACK_THRESHOLDS.forEach(th => { if (trackedDist > th + 30) trackedThresholds.current.delete(th); });
+  }, [trackedDist, trackedUser, audio]);
 
-  // ── GPS 위치 추적 ────────────────────────────────────────
-  function requestLocation() {
+  // ── GPS 추적 ─────────────────────────────────────────────
+  const startGps = useCallback(() => {
     if (!("geolocation" in navigator)) { setPermission("denied"); return; }
     setPermission("requested");
 
     watchId.current = navigator.geolocation.watchPosition(
-      (pos) => {
+      pos => {
         setPermission("granted");
         const raw: Coords = {
           lat: pos.coords.latitude, lng: pos.coords.longitude,
           acc: pos.coords.accuracy, heading: pos.coords.heading,
         };
-
-        // 정확도 50m 초과 무시
         if (raw.acc > GPS_MAX_ACC) return;
 
-        // 최근 버퍼 갱신 (보조 평균)
-        recentBuf.current = [...recentBuf.current, raw].slice(-RECENT_BUF_SIZE);
-        const avg = bufferAvg(recentBuf.current);
-
-        // EMA 스무딩 (버퍼 평균에 EMA 적용)
-        const blended: Coords = avg
-          ? { ...raw, lat: avg.lat, lng: avg.lng }
-          : raw;
-        const c = smoothCoords(smoothedPos.current, blended);
+        recentBuf.current = [...recentBuf.current, raw].slice(-BUF_SIZE);
+        const avg = bufAvg(recentBuf.current);
+        const blended: Coords = avg ? { ...raw, lat: avg.lat, lng: avg.lng } : raw;
+        const c = smooth(smoothedPos.current, blended);
         smoothedPos.current = c;
         setCoords(c);
 
-        // 거리 누적 (2m 이상 이동만)
         if (lastPos.current) {
-          const d = haversine(lastPos.current.lat, lastPos.current.lng, c.lat, c.lng);
+          const d = hav(lastPos.current.lat, lastPos.current.lng, c.lat, c.lng);
           if (d >= GPS_MIN_DIST) { setMeters(m => m + d); lastPos.current = c; }
         } else { lastPos.current = c; }
 
@@ -246,75 +203,91 @@ function WalkScreen() {
                 if (announcedLandmarks.current.has(lm.id)) return;
                 announcedLandmarks.current.add(lm.id);
                 setTimeout(() => announcedLandmarks.current.delete(lm.id), 30_000);
-                speak(lm.announcement ?? `${sideLabel(lm.side)}에 ${lm.custom_name ?? lm.name}이(가) 있습니다.`);
+                audio.announce(
+                  lm.announcement ?? `${sideLabel(lm.side)}에 ${lm.custom_name ?? lm.name}이(가) 있습니다.`
+                );
               });
             }).catch(() => {});
         }
 
-        // 내 위치 업로드 (15초, 공개 설정 이용자만)
+        // 내 위치 업로드 (15초)
         if (me?.status === "APPROVED" && me.default_share_mode !== "PRIVATE") {
-          if (now - lastLocationPush.current > 15_000) {
-            lastLocationPush.current = now;
+          if (now - lastLocPush.current > 15_000) {
+            lastLocPush.current = now;
             upsertLocFn({ data: { lat: c.lat, lng: c.lng, accuracy: c.acc, walkSessionId: walkId ?? null } })
               .catch(() => {});
           }
         }
 
-        // 근처 이용자 + 전체 경로 이용자 폴링 (30초)
+        // 전체 경로 이용자 폴링 (30초)
         if (me && now - lastWalkersCheck.current > 30_000) {
           lastWalkersCheck.current = now;
-
-          // 전체 경로 이용자
           routeWalkFn({ data: { lat: c.lat, lng: c.lng } })
             .then(rows => {
               const list = rows as RouteWalker[];
               setRouteWalkers(list);
 
-              // 추적 중인 사용자 거리 업데이트
-              if (trackedUser) {
-                const found = list.find(w => w.userId === trackedUser.userId);
+              // 추적 중 거리 업데이트
+              const tracked = trackedUserRef.current;
+              if (tracked) {
+                const found = list.find(w => w.userId === tracked.userId);
                 setTrackedDist(found?.distance ?? null);
               }
 
-              // 150m 이내 신규 진입 알림
+              // 150m 신규 진입 알림
               list.filter(w => w.distance != null && w.distance <= 150).forEach(w => {
                 if (announcedNearby.current.has(w.userId)) return;
                 announcedNearby.current.add(w.userId);
                 setTimeout(() => announcedNearby.current.delete(w.userId), 90_000);
-                speak(`${w.name}님이 근처 ${w.distance}미터에 계십니다.`);
+                audio.announce(`${w.name}님이 근처 ${w.distance}미터에 계십니다.`);
               });
-              const nearIds = new Set(list.filter(w => w.distance != null && w.distance <= 150).map(w => w.userId));
-              announcedNearby.current.forEach(id => { if (!nearIds.has(id)) announcedNearby.current.delete(id); });
+              const nearSet = new Set(list.filter(w => w.distance != null && w.distance <= 150).map(w => w.userId));
+              announcedNearby.current.forEach(id => { if (!nearSet.has(id)) announcedNearby.current.delete(id); });
             }).catch(() => {});
         }
       },
       () => setPermission("denied"),
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 15_000 },
     );
-  }
+  }, [me, walkId, audio, nearbyFn, landmarkFn, upsertLocFn, routeWalkFn]);
 
-  function stopTracking() {
+  function stopGps() {
     if (watchId.current != null) { navigator.geolocation.clearWatch(watchId.current); watchId.current = null; }
   }
+  useEffect(() => () => stopGps(), []);
 
-  useEffect(() => () => stopTracking(), []);
+  // ── Wake Lock: 산책 중 화면 꺼짐 방지 ───────────────────
+  useEffect(() => {
+    requestWakeLock().then(l => { wakeLock.current = l; });
+    const reacquire = () => {
+      if (document.visibilityState === "visible" && !wakeLock.current?.released) {
+        requestWakeLock().then(l => { wakeLock.current = l; });
+      }
+    };
+    document.addEventListener("visibilitychange", reacquire);
+    return () => {
+      document.removeEventListener("visibilitychange", reacquire);
+      wakeLock.current?.release().catch(() => {});
+    };
+  }, []);
 
   function startTracking(w: RouteWalker) {
     setTrackedUser({ userId: w.userId, name: w.name });
+    trackedUserRef.current = { userId: w.userId, name: w.name };
     setTrackedDist(w.distance);
     lastTrackedDist.current = w.distance;
-    trackThresholdsDone.current.clear();
-    speak(`${w.name}님 추적을 시작합니다.`);
+    trackedThresholds.current.clear();
+    audio.announce(`${w.name}님 추적을 시작합니다.`, { beep: false });
     setShowWalkers(false);
   }
-
-  function stopUserTracking() {
-    speak(`${trackedUser?.name}님 추적을 종료합니다.`);
-    setTrackedUser(null); setTrackedDist(null); lastTrackedDist.current = null;
+  function stopTracking() {
+    audio.announce(`${trackedUser?.name}님 추적을 종료합니다.`, { beep: false });
+    setTrackedUser(null); trackedUserRef.current = null;
+    setTrackedDist(null); lastTrackedDist.current = null;
   }
 
-  const isApproved    = me?.status === "APPROVED";
-  const nextAnnounce  = meterBucket * 200 + 200;
+  const isApproved   = me?.status === "APPROVED";
+  const nextAnnounce = meterBucket * 200 + 200;
 
   return (
     <AppShell title="산책 중" back={{ to: "/" }}
@@ -330,7 +303,8 @@ function WalkScreen() {
           </button>
           <button type="button" className="btn-danger"
             onClick={async () => {
-              stopTracking();
+              stopGps();
+              wakeLock.current?.release().catch(() => {});
               if (walkId) { try { await endFn({ data: { walkId } }); } catch { /**/ } }
               navigate({ to: "/" });
             }}
@@ -340,14 +314,27 @@ function WalkScreen() {
         </div>
       }
     >
+      {/*
+        aria-live 영역: 스크린리더(VoiceOver/TalkBack) 백업 알림.
+        화면에는 보이지 않지만 스크린리더가 읽음.
+      */}
+      <div
+        ref={audio.liveRef as React.RefObject<HTMLDivElement>}
+        aria-live="assertive"
+        aria-atomic="true"
+        className="sr-only"
+      />
+
       {/* 위치 권한 */}
       {permission !== "granted" && (
-        <button type="button" className="btn-secondary" onClick={requestLocation}>
+        <button type="button" className="btn-secondary"
+          onClick={() => { audio.unlockAudio(); startGps(); }}
+          aria-label="위치 권한 요청 및 GPS 시작">
           <Navigation aria-hidden size={22} /> 위치 권한 요청
         </button>
       )}
 
-      {/* 거리 + 음성 */}
+      {/* 거리 + 음성 토글 */}
       <div className="flex items-center justify-between gap-3 rounded-2xl border-2 border-foreground bg-card px-4 py-3">
         <div>
           <p className="text-lg font-extrabold">
@@ -359,22 +346,28 @@ function WalkScreen() {
             </p>
           )}
         </div>
+        {/* 음성 토글 — 여기서 AudioContext 언락 */}
         <button type="button" className="btn-secondary min-h-12 px-3"
-          onClick={() => setVoiceOn(v => !v)}
-          aria-label={voiceOn ? "음성 안내 끄기" : "음성 안내 켜기"}>
-          {voiceOn ? <Mic aria-hidden size={22} /> : <MicOff aria-hidden size={22} />}
-          {voiceOn ? "음성 켜짐" : "음성 꺼짐"}
+          onClick={() => {
+            const next = !audio.voiceOn;
+            if (next) audio.unlockAudio(); // 반드시 user-gesture에서
+            audio.setVoiceOn(next);
+          }}
+          aria-label={audio.voiceOn ? "음성 안내 끄기" : "음성 안내 켜기"}
+          aria-pressed={audio.voiceOn}>
+          {audio.voiceOn ? <Mic aria-hidden size={22} /> : <MicOff aria-hidden size={22} />}
+          {audio.voiceOn ? "음성 켜짐" : "음성 꺼짐"}
         </button>
       </div>
 
-      {/* 위험 신고 버튼 */}
+      {/* 위험 신고 */}
       <button type="button" className="btn-secondary"
         onClick={() => navigate({ to: "/report-hazard" })}
         aria-label="위험 신고 화면으로 이동">
         <AlertTriangle aria-hidden size={22} /> 공사 및 위험 신고
       </button>
 
-      {/* 추적 중 배너 */}
+      {/* 추적 배너 */}
       {trackedUser && (
         <div className="flex items-center justify-between rounded-2xl border-2 border-foreground bg-card px-4 py-3"
           role="status" aria-live="polite">
@@ -386,7 +379,7 @@ function WalkScreen() {
               {trackedDist != null ? `현재 약 ${trackedDist}m 거리` : "거리 계산 중…"}
             </p>
           </div>
-          <button type="button" className="btn-secondary px-3 py-2" onClick={stopUserTracking}
+          <button type="button" className="btn-secondary px-3 py-2" onClick={stopTracking}
             aria-label="추적 종료">
             <X aria-hidden size={18} /> 추적 종료
           </button>
@@ -399,34 +392,29 @@ function WalkScreen() {
           <button type="button"
             className="flex w-full items-center justify-between rounded-2xl border-2 border-foreground bg-card px-4 py-3"
             onClick={() => setShowWalkers(v => !v)}
-            aria-expanded={showWalkers}
-            aria-controls="walkers-list">
+            aria-expanded={showWalkers}>
             <p className="flex items-center gap-2 text-lg font-extrabold">
-              <Users aria-hidden size={20} />
-              이 길에 있는 이용자 {routeWalkers.length}명
+              <Users aria-hidden size={20} /> 이 길에 있는 이용자 {routeWalkers.length}명
             </p>
             {showWalkers ? <ChevronUp aria-hidden size={20} /> : <ChevronDown aria-hidden size={20} />}
           </button>
-
           {showWalkers && (
-            <div id="walkers-list" className="mt-2 space-y-2">
+            <div className="mt-2 space-y-2">
               {routeWalkers.map(w => {
                 const isTracked = trackedUser?.userId === w.userId;
                 return (
                   <button key={w.userId} type="button"
                     className="status-card flex w-full items-center justify-between gap-3 text-left"
                     style={isTracked ? { background: "var(--primary)", color: "var(--primary-foreground)" } : undefined}
-                    onClick={() => isTracked ? stopUserTracking() : startTracking(w)}
-                    aria-label={`${w.name}님, ${w.distance != null ? `약 ${w.distance}미터` : "거리 미상"}, ${secsToText(w.updatedSecsAgo)} 업데이트됨. ${isTracked ? "추적 중. 탭하면 추적 종료" : "탭하면 추적 시작"}`}>
+                    onClick={() => isTracked ? stopTracking() : startTracking(w)}
+                    aria-label={`${w.name}님, ${w.distance != null ? `약 ${w.distance}미터` : "거리 미상"}, ${secsAgo(w.updatedSecsAgo)} 업데이트됨. ${isTracked ? "추적 중, 탭하면 종료" : "탭하면 추적 시작"}`}>
                     <div>
                       <p className="text-base font-bold">{w.name}님</p>
                       <p className="text-sm opacity-80">
-                        {w.distance != null ? `약 ${w.distance}m` : "거리 미상"} · {secsToText(w.updatedSecsAgo)}
+                        {w.distance != null ? `약 ${w.distance}m` : "거리 미상"} · {secsAgo(w.updatedSecsAgo)}
                       </p>
                     </div>
-                    <span className="shrink-0 text-sm font-bold">
-                      {isTracked ? "추적 중" : "추적 시작"}
-                    </span>
+                    <span className="shrink-0 text-sm font-bold">{isTracked ? "추적 중" : "추적 시작"}</span>
                   </button>
                 );
               })}
