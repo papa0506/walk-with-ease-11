@@ -12,7 +12,7 @@ import { useAudioAnnouncer } from "@/hooks/useAudioAnnouncer";
 import {
   endWalk, nearbyHazards, hazardFeedback,
   nearbyLandmarks, upsertMyLocation,
-  getNearbyWalkers, getRouteWalkers,
+  getRouteWalkers,
 } from "@/lib/namsan.functions";
 
 const search = z.object({ walkId: z.string().optional() });
