@@ -477,6 +477,46 @@ export const upsertMyLocation = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+
+export const getRouteWalkers = createServerFn({ method: "POST" })
+  .inputValidator((i: { lat?: number | null; lng?: number | null }) => i)
+  .handler(async ({ data }) => {
+    const me = await requireUser();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // 15분 이내에 위치를 업데이트한 이용자
+    const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const { data: rows, error } = await supabaseAdmin
+      .from("walk_locations")
+      .select("user_id, lat, lng, accuracy, updated_at, app_users!inner(name, default_share_mode)")
+      .neq("user_id", me.id)
+      .gt("updated_at", cutoff);
+    if (error) throw new Error(error.message);
+    type WalkRow = {
+      user_id: string; lat: number | null; lng: number | null;
+      accuracy: number | null; updated_at: string;
+      app_users: { name: string; default_share_mode: string };
+    };
+    return (rows as unknown as WalkRow[] ?? [])
+      .filter(r => r.app_users.default_share_mode !== "PRIVATE")
+      .map(r => {
+        const dist = (data.lat != null && data.lng != null && r.lat != null && r.lng != null)
+          ? Math.round(haversine(data.lat, data.lng, r.lat!, r.lng!))
+          : null;
+        const secsAgo = Math.round((Date.now() - new Date(r.updated_at).getTime()) / 1000);
+        return {
+          userId: r.user_id,
+          name: r.app_users.name,
+          distance: dist,           // null이면 내 GPS 없음
+          updatedSecsAgo: secsAgo,
+        };
+      })
+      .sort((a, b) => {
+        if (a.distance == null) return 1;
+        if (b.distance == null) return -1;
+        return a.distance - b.distance;
+      });
+  });
+
 export const getNearbyWalkers = createServerFn({ method: "POST" })
   .inputValidator((i: { lat: number; lng: number; radiusM?: number }) => i)
   .handler(async ({ data }) => {
