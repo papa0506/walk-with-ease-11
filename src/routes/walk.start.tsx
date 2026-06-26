@@ -16,8 +16,8 @@ type Choice = "NTH_THEATER" | "NTH_CABLECAR" | "CURRENT";
 
 // 남산 북측순환로 입구 좌표 기본값 (DB에 없을 때 fallback)
 const FALLBACK_COORDS: Record<string, { lat: number; lng: number }> = {
-  NTH_THEATER:  { lat: 37.5538, lng: 126.9972 }, // 국립극장 입구
-  NTH_CABLECAR: { lat: 37.5532, lng: 126.9839 }, // 케이블카 방면 입구
+  NTH_THEATER:  { lat: 37.5537, lng: 126.9971 }, // 국립극장 입구 (중구 장충단로 59)
+  NTH_CABLECAR: { lat: 37.5519, lng: 126.9813 }, // 케이블카 방면 입구 (중구 소파로 83)
 };
 
 function hav(la1: number, lo1: number, la2: number, lo2: number) {

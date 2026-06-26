@@ -114,8 +114,8 @@ async function requestWakeLock(): Promise<WakeLockSentinel | null> {
 
 // 남산 북측순환로 입구 fallback 좌표 (DB에 없을 때 사용)
 const ENTRANCE_FALLBACK: Record<string, { lat: number; lng: number; name: string }> = {
-  NTH_THEATER:  { lat: 37.5538, lng: 126.9972, name: "국립극장 입구" },
-  NTH_CABLECAR: { lat: 37.5532, lng: 126.9839, name: "케이블카 방면 입구" },
+  NTH_THEATER:  { lat: 37.5537, lng: 126.9971, name: "국립극장 입구" },   // 서울 중구 장충단로 59
+  NTH_CABLECAR: { lat: 37.5519, lng: 126.9813, name: "케이블카 방면 입구" }, // 서울 중구 소파로 83
 };
 
 // ── 컴포넌트 ─────────────────────────────────────────────
@@ -142,6 +142,7 @@ function WalkScreen() {
   const [showWalkers,  setShowWalkers]  = useState(false);
   const [trackedUser,  setTrackedUser]  = useState<{ userId: string; name: string } | null>(null);
   const [trackedDist,  setTrackedDist]  = useState<number | null>(null);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
 
   const watchId           = useRef<number | null>(null);
   const kalman            = useRef(new KalmanGPS());
@@ -359,6 +360,12 @@ function WalkScreen() {
   }
   useEffect(() => () => stopGps(), []);
 
+  // ── GPS 자동 시작 (산책 화면 진입 시 자동으로 위치 권한 요청) ──────
+  useEffect(() => {
+    startGps();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── 마일스톤 로드 (위치 보정 앵커 데이터) ───────────────
   useEffect(() => {
     getMilestonesFn().then(rows => {
@@ -468,12 +475,28 @@ function WalkScreen() {
         className="sr-only"
       />
 
-      {/* 위치 권한 */}
-      {permission !== "granted" && (
-        <button type="button" className="btn-secondary"
-          onClick={() => { audio.unlockAudio(); startGps(); }}
-          aria-label="위치 권한 요청 및 GPS 시작">
-          <Navigation aria-hidden size={22} /> 위치 권한 요청
+      {/* 음성 허용 버튼 — 첫 탭에서 AudioContext 잠금 해제 (iOS/Android 필수) */}
+      {!audioUnlocked && (
+        <button
+          type="button"
+          className="btn-primary"
+          style={{ fontSize: "1.25rem", padding: "1.2rem" }}
+          onClick={() => {
+            audio.unlockAudio();
+            audio.setVoiceOn(true);
+            setAudioUnlocked(true);
+            // 입구명 포함 시작 안내
+            const entranceName = startEntranceRef.current?.name ?? "";
+            setTimeout(() => {
+              audio.announce(
+                entranceName
+                  ? `${entranceName} 입구에서 출발합니다. 음성 안내가 시작됩니다.`
+                  : "산책을 시작합니다. 음성 안내가 시작됩니다."
+              );
+            }, 300);
+          }}
+          aria-label="음성 안내 시작 — 탭하면 GPS 위치와 음성이 활성화됩니다">
+          <Navigation aria-hidden size={22} /> 음성 안내 시작 (탭하세요)
         </button>
       )}
 
@@ -494,12 +517,11 @@ function WalkScreen() {
             </p>
           )}
         </div>
-        {/* 음성 토글 — 여기서 AudioContext 언락 */}
+        {/* 음성 토글 */}
         <button type="button" className="btn-secondary min-h-12 px-3"
           onClick={() => {
-            const next = !audio.voiceOn;
-            if (next) audio.unlockAudio(); // 반드시 user-gesture에서
-            audio.setVoiceOn(next);
+            if (!audioUnlocked) { audio.unlockAudio(); setAudioUnlocked(true); }
+            audio.setVoiceOn(!audio.voiceOn);
           }}
           aria-label={audio.voiceOn ? "음성 안내 끄기" : "음성 안내 켜기"}
           aria-pressed={audio.voiceOn}>
