@@ -21,7 +21,7 @@ async function sessionTokenFromRequest(): Promise<string | null> {
 }
 
 export const generateAudioFn = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => d as { force?: boolean })
+  .inputValidator((data: { force?: boolean }) => data)
   .handler(async ({ data }) => {
     // 관리자 확인
     const { userFromToken } = await import("@/lib/namsan-auth.server");
