@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/walk/AppShell";
 import { StatusCard } from "@/components/walk/StatusCard";
 import { adminSaveMilestone, adminSaveLandmark } from "@/lib/namsan.functions";
+import { useGpsAverage } from "@/hooks/useGpsAverage";
 
 export const Route = createFileRoute("/admin/field-mode")({
   head: () => ({ meta: [{ title: "현장 실측 모드 · 관리자" }] }),
@@ -44,7 +45,9 @@ function FieldMode() {
   const [msg, setMsg] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("MAIN");
   const [busy, setBusy] = useState(false);
+  const [precisionMode, setPrecisionMode] = useState(false);
   const watchId = useRef<number | null>(null);
+  const gpsAvg = useGpsAverage(15); // 정밀 모드: 15개 샘플 평균
 
   // Landmark form state
   const [ltype, setLType] = useState<LType>("BENCH");
@@ -63,7 +66,34 @@ function FieldMode() {
 
   const basisCode = dir === "THEATER_TO_CABLECAR" ? "NTH_THEATER" : "NTH_CABLECAR";
 
+  // 정밀 모드: GPS 평균 수집 시작
+  function startPrecision() {
+    setMsg(null);
+    gpsAvg.start();
+  }
+
+  // 정밀 모드: 수집 완료 후 저장
+  async function savePrecisionMilestone() {
+    if (!gpsAvg.result) return;
+    setBusy(true); setMsg(null);
+    try {
+      await saveM({ data: {
+        basis_entrance_code: basisCode, meter,
+        survey_direction: dir,
+        lat: gpsAvg.result.lat, lng: gpsAvg.result.lng, accuracy: gpsAvg.result.accuracy,
+      }});
+      const conf = gpsAvg.result.confidence === "excellent" ? "매우 우수"
+        : gpsAvg.result.confidence === "good" ? "우수"
+        : gpsAvg.result.confidence === "fair" ? "보통" : "낮음";
+      setMsg(`${meter}m 정밀 저장됨 (오차 ${gpsAvg.result.accuracy.toFixed(1)}m, ${conf}) → 다음 ${meter + 200}m`);
+      setMeter((m) => m + 200);
+      gpsAvg.stop();
+    } catch (e: unknown) { setMsg(e instanceof Error ? e.message : "저장 실패"); }
+    finally { setBusy(false); }
+  }
+
   async function saveMilestone() {
+    if (precisionMode) { startPrecision(); return; }
     if (!pos) { setMsg("위치를 가져오는 중입니다."); return; }
     setBusy(true); setMsg(null);
     try {
@@ -162,8 +192,15 @@ function FieldMode() {
   return (
     <AppShell title="현장 실측 모드" back={{ to: "/admin" }}
       bottomAction={
-        <button className="btn-primary" onClick={saveMilestone} disabled={busy || !pos}>
-          <Save aria-hidden size={26} /> {busy ? "저장 중..." : `현재 위치를 ${meter}m 표지로 기록`}
+        <button className="btn-primary"
+          onClick={saveMilestone}
+          disabled={busy || (!precisionMode && !pos) || (precisionMode && gpsAvg.status === "collecting")}>
+          <Save aria-hidden size={26} />
+          {precisionMode
+            ? gpsAvg.status === "collecting"
+              ? `수집 중 ${gpsAvg.progress}/15…`
+              : `${meter}m 정밀 측정 시작`
+            : busy ? "저장 중..." : `현재 위치를 ${meter}m 표지로 기록`}
         </button>
       }>
       <fieldset>
@@ -177,6 +214,54 @@ function FieldMode() {
       <StatusCard tone={pos ? "success" : "warning"} icon={<MapPin aria-hidden size={28} />}
         eyebrow="GPS"
         title={pos ? `정확도 약 ${Math.round(pos.acc)} m` : "위치 가져오는 중..."} />
+
+      {/* 정밀 측정 모드 토글 */}
+      <div className="status-card flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-lg font-extrabold">정밀 측정 모드</p>
+          <p className="text-sm text-muted-foreground">
+            {precisionMode
+              ? "15개 샘플 평균 저장 — 반경 10m 걸으며 수집"
+              : "즉시 저장 (빠른 연속 기록용)"}
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={precisionMode}
+          aria-label={precisionMode ? "정밀 모드 켜짐, 끄려면 탭" : "정밀 모드 꺼짐, 켜려면 탭"}
+          onClick={() => { setPrecisionMode(v => !v); gpsAvg.stop(); setMsg(null); }}
+          className="min-h-12 min-w-20 rounded-xl border-2 border-foreground px-3 font-extrabold"
+          style={precisionMode ? { background: "var(--primary)", color: "var(--primary-foreground)" } : undefined}>
+          {precisionMode ? "켜짐" : "꺼짐"}
+        </button>
+      </div>
+
+      {/* 정밀 모드 수집 상태 */}
+      {precisionMode && gpsAvg.status === "collecting" && (
+        <div className="status-card space-y-2" role="status" aria-live="polite">
+          <p className="text-lg font-extrabold">샘플 수집 중… {gpsAvg.progress} / 15</p>
+          <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
+            <div className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${Math.round(gpsAvg.progress / 15 * 100)}%` }} />
+          </div>
+          <p className="text-sm text-muted-foreground">반경 10m 이내를 천천히 걸어주세요.</p>
+        </div>
+      )}
+      {precisionMode && gpsAvg.status === "done" && gpsAvg.result && (
+        <div className="status-card space-y-2" role="status" aria-live="polite">
+          <p className="text-lg font-extrabold text-green-600">측정 완료</p>
+          <p className="text-base">
+            추정 오차 {gpsAvg.result.accuracy.toFixed(1)}m · {gpsAvg.result.sampleCount}개 평균
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button className="btn-secondary min-h-12" onClick={() => gpsAvg.start()}>재측정</button>
+            <button className="btn-primary min-h-12" onClick={savePrecisionMilestone} disabled={busy}>
+              {busy ? "저장 중..." : `${meter}m 저장`}
+            </button>
+          </div>
+        </div>
+      )}
 
       <StatusCard tone="info" icon={<Footprints aria-hidden size={28} />}
         eyebrow="현재 표지"
