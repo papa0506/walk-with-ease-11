@@ -34,6 +34,17 @@ const SIDES: { key: Side; label: string }[] = [
   { key: "UNKNOWN", label: "모르겠음" },
 ];
 
+/** 관리자 화면 전용 간단 TTS */
+function speakText(text: string) {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "ko-KR"; u.rate = 1.0;
+  const ko = window.speechSynthesis.getVoices().find(v => v.lang?.startsWith("ko")) ?? null;
+  if (ko) u.voice = ko;
+  window.speechSynthesis.speak(u);
+}
+
 function FieldMode() {
   const navigate = useNavigate();
   const saveM = useServerFn(adminSaveMilestone);
@@ -48,6 +59,21 @@ function FieldMode() {
   const [precisionMode, setPrecisionMode] = useState(false);
   const watchId = useRef<number | null>(null);
   const gpsAvg = useGpsAverage(15); // 정밀 모드: 15개 샘플 평균
+  const prevAvgStatus = useRef<string>("idle");
+
+  // 정밀 모드 수집 완료 시 음성 자동 안내
+  useEffect(() => {
+    if (gpsAvg.status === "done" && prevAvgStatus.current !== "done" && gpsAvg.result) {
+      const conf =
+        gpsAvg.result.confidence === "excellent" ? "매우 우수" :
+        gpsAvg.result.confidence === "good" ? "우수" :
+        gpsAvg.result.confidence === "fair" ? "보통" : "낮음";
+      speakText(
+        `${meter}미터 지점 측정 완료. 추정 오차 약 ${Math.round(gpsAvg.result.accuracy)}미터, 신뢰도 ${conf}. 저장 버튼을 눌러주세요.`
+      );
+    }
+    prevAvgStatus.current = gpsAvg.status;
+  }, [gpsAvg.status, gpsAvg.result, meter]);
 
   // Landmark form state
   const [ltype, setLType] = useState<LType>("BENCH");

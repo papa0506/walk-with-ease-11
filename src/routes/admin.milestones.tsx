@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Ruler, CheckCircle, Circle, RefreshCw } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
@@ -27,6 +27,19 @@ type SurveyDir = "THEATER_TO_CABLECAR" | "CABLECAR_TO_THEATER" | "UNSPEC";
 const METERS = [200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000];
 const TARGET_SAMPLES = 20; // 20개 샘플 평균
 
+/** 관리자 화면 전용 간단 TTS (AudioContext 잠금 불필요 — 버튼 탭 후 실행됨) */
+function speakText(text: string) {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "ko-KR";
+  u.rate = 1.0;
+  const vs = window.speechSynthesis.getVoices();
+  const ko = vs.find(v => v.lang === "ko-KR") ?? vs.find(v => v.lang.startsWith("ko")) ?? null;
+  if (ko) u.voice = ko;
+  window.speechSynthesis.speak(u);
+}
+
 function Milestones() {
   const [basis, setBasis] = useState("NTH_THEATER");
   const [meter, setMeter] = useState(200);
@@ -37,6 +50,21 @@ function Milestones() {
   const saveFn  = useServerFn(adminSaveMilestone);
   const listFn  = useServerFn(adminListMilestones);
   const gps     = useGpsAverage(TARGET_SAMPLES);
+  const prevGpsStatus = useRef<string>("idle");
+
+  // 수집 완료 시 음성 자동 안내
+  useEffect(() => {
+    if (gps.status === "done" && prevGpsStatus.current !== "done" && gps.result) {
+      const conf =
+        gps.result.confidence === "excellent" ? "매우 우수" :
+        gps.result.confidence === "good" ? "우수" :
+        gps.result.confidence === "fair" ? "보통" : "낮음";
+      speakText(
+        `측정 완료. 샘플 ${gps.result.sampleCount}개 평균, 추정 오차 약 ${Math.round(gps.result.accuracy)}미터, 신뢰도 ${conf}. 저장 버튼을 눌러주세요.`
+      );
+    }
+    prevGpsStatus.current = gps.status;
+  }, [gps.status, gps.result]);
 
   const { data: existing = [], refetch } = useQuery({
     queryKey: ["milestones"],
