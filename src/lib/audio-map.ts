@@ -99,9 +99,16 @@ export const ALL_AUDIO_ENTRIES: AudioEntry[] = [
   ...SYSTEM_ENTRIES,
 ];
 
-// ── key → /audio/파일 경로 맵 ─────────────────────────────────
+// ── Supabase Storage 베이스 URL ──────────────────────────────
+// 환경변수에서 읽어 클라이언트에서도 접근 가능 (public 버킷)
+const STORAGE_BASE =
+  typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_SUPABASE_URL
+    ? `${(import.meta as any).env.VITE_SUPABASE_URL}/storage/v1/object/public/walk-audio`
+    : "/audio"; // 로컬 fallback (gen-audio 스크립트로 생성 시)
+
+// ── key → Supabase Storage URL 맵 ────────────────────────────
 export const AUDIO_URL: Record<string, string> = Object.fromEntries(
-  ALL_AUDIO_ENTRIES.map(e => [e.key, `/audio/${e.file}`])
+  ALL_AUDIO_ENTRIES.map(e => [e.key, `${STORAGE_BASE}/${e.file}`])
 );
 
 // ── DB side 값 → side 세그먼트 key ────────────────────────────

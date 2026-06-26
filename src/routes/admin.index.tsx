@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ShieldAlert, ClipboardCheck, MapPin, Ruler, AlertTriangle, Footprints } from "lucide-react";
+import { ShieldAlert, ClipboardCheck, MapPin, Ruler, AlertTriangle, Footprints, Volume2 } from "lucide-react";
 import { AppShell } from "@/components/walk/AppShell";
 import { StatusCard } from "@/components/walk/StatusCard";
 import { useMe } from "@/hooks/useMe";
@@ -14,6 +15,28 @@ export const Route = createFileRoute("/admin/")({
 
 function AdminHome() {
   const { data: me } = useMe();
+  const [audioStatus, setAudioStatus] = useState<"idle"|"loading"|"done"|"error">("idle");
+  const [audioResult, setAudioResult] = useState<string>("");
+
+  async function generateAudio(force = false) {
+    setAudioStatus("loading");
+    setAudioResult("");
+    try {
+      // x-admin-key: 서비스 롤 키 마지막 12자리 (서버에서 검증)
+      const res = await fetch(`/api/generate-audio${force ? "?force=true" : ""}`, {
+        method: "POST",
+        credentials: "include",   // 세션 쿠키 자동 전송
+      });
+      const json = await res.json();
+      if (!res.ok) { setAudioStatus("error"); setAudioResult(json.error ?? "오류"); return; }
+      setAudioStatus("done");
+      setAudioResult(`완료 ${json.ok}개 / 건너뜀 ${json.skip}개 / 오류 ${json.error}개`);
+    } catch (e: any) {
+      setAudioStatus("error");
+      setAudioResult(e.message);
+    }
+  }
+
   const listFn = useServerFn(adminListUsers);
   const setStatusFn = useServerFn(adminSetStatus);
   const { data: users = [], refetch, isLoading, error } = useQuery({
@@ -58,6 +81,38 @@ function AdminHome() {
         eyebrow="가입 승인"
         title={`승인 대기 ${pending.length}명`}
         description="새 가입자를 검토하고 승인 또는 거부합니다." />
+
+      {/* 오디오 생성 카드 */}
+      <div className="status-card space-y-3">
+        <div className="flex items-center gap-3">
+          <Volume2 aria-hidden size={24} />
+          <p className="text-xl font-extrabold">안내 음성 파일 생성</p>
+        </div>
+        <p className="text-base text-muted-foreground">
+          ElevenLabs로 35개 안내 음성을 생성해 Supabase Storage에 저장합니다.
+          최초 한 번만 실행하면 이후 모든 이용자가 무료로 재생합니다.
+        </p>
+        {audioResult && (
+          <p role="status" className={`rounded-xl px-4 py-2 font-bold text-base ${
+            audioStatus === "done" ? "bg-green-100 text-green-900" : "bg-red-100 text-red-900"
+          }`}>{audioResult}</p>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            className="btn-primary"
+            onClick={() => generateAudio(false)}
+            disabled={audioStatus === "loading"}
+            aria-busy={audioStatus === "loading"}>
+            {audioStatus === "loading" ? "생성 중..." : "오디오 생성 (신규만)"}
+          </button>
+          <button
+            className="btn-secondary"
+            onClick={() => generateAudio(true)}
+            disabled={audioStatus === "loading"}>
+            전체 재생성
+          </button>
+        </div>
+      </div>
 
       {error && (
         <p role="alert" className="rounded-xl border-2 border-foreground bg-[var(--danger)] px-4 py-3 font-bold text-[var(--danger-foreground)]">
