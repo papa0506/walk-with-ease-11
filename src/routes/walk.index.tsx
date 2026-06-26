@@ -115,7 +115,7 @@ async function requestWakeLock(): Promise<WakeLockSentinel | null> {
 // 남산 북측순환로 입구 fallback 좌표 (DB에 없을 때 사용)
 const ENTRANCE_FALLBACK: Record<string, { lat: number; lng: number; name: string }> = {
   NTH_THEATER:  { lat: 37.5537, lng: 126.9971, name: "국립극장 입구" },   // 서울 중구 장충단로 59
-  NTH_CABLECAR: { lat: 37.5519, lng: 126.9813, name: "케이블카 방면 입구" }, // 서울 중구 소파로 83
+  NTH_CABLECAR: { lat: 37.55377, lng: 126.98381, name: "케이블카 방면 입구" }, // 서울 중구 소파로 83
 };
 
 // ── 컴포넌트 ─────────────────────────────────────────────
