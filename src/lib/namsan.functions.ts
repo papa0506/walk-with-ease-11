@@ -159,9 +159,25 @@ export const adminSetStatus = createServerFn({ method: "POST" })
 
 // ---------- FIELD SURVEY ----------
 
+// 기본 입구 2개가 DB에 없으면 자동 생성
+async function ensureDefaultEntrances(supabaseAdmin: any) {
+  const defaults = [
+    { code: "NTH_THEATER",  name: "국립극장 입구" },
+    { code: "NTH_CABLECAR", name: "북측순환로 입구 (케이블카 방면)" },
+  ];
+  for (const e of defaults) {
+    const { data: existing } = await supabaseAdmin
+      .from("entrances").select("id").eq("code", e.code).maybeSingle();
+    if (!existing) {
+      await supabaseAdmin.from("entrances").insert({ code: e.code, name: e.name });
+    }
+  }
+}
+
 export const adminListEntrances = createServerFn({ method: "GET" }).handler(async () => {
   await requireAdmin();
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  await ensureDefaultEntrances(supabaseAdmin);
   const { data, error } = await supabaseAdmin
     .from("entrances").select("*").order("code");
   if (error) throw new Error(error.message);
@@ -173,6 +189,7 @@ export const adminRecordEntrance = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const me = await requireAdmin();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await ensureDefaultEntrances(supabaseAdmin);
     const { error } = await supabaseAdmin.from("entrances").update({
       lat: data.lat, lng: data.lng, accuracy: data.accuracy,
       measured_at: new Date().toISOString(), measured_by: me.id, verified: false,
@@ -204,6 +221,17 @@ export const adminSaveLandmark = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const adminListMilestones = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAdmin();
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("milestones")
+    .select("id, meter, survey_direction, verification_status, verified, accuracy, measured_at, basis_entrance(code, name)")
+    .order("meter");
+  if (error) throw new Error(error.message);
+  return data ?? [];
+});
+
 export const adminSaveMilestone = createServerFn({ method: "POST" })
   .inputValidator((i: {
     basis_entrance_code: string; meter: number;
@@ -213,9 +241,21 @@ export const adminSaveMilestone = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const me = await requireAdmin();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // 입구 자동 생성 후 조회
+    await ensureDefaultEntrances(supabaseAdmin);
     const { data: ent } = await supabaseAdmin
       .from("entrances").select("id").eq("code", data.basis_entrance_code).maybeSingle();
-    if (!ent) throw new Error("기준 입구를 찾을 수 없습니다.");
+    if (!ent) throw new Error("기준 입구를 찾을 수 없습니다: " + data.basis_entrance_code);
+
+    // 기존 미검증 중복 삭제 후 재삽입 (upsert 대체)
+    await supabaseAdmin.from("milestones")
+      .delete()
+      .eq("basis_entrance", ent.id)
+      .eq("meter", data.meter)
+      .eq("survey_direction", data.survey_direction)
+      .eq("verified", false);
+
     const { error } = await supabaseAdmin.from("milestones").insert({
       basis_entrance: ent.id, meter: data.meter,
       survey_direction: data.survey_direction,
