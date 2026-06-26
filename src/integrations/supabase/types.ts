@@ -400,6 +400,48 @@ export type Database = {
           },
         ]
       }
+      walk_locations: {
+        Row: {
+          accuracy: number | null
+          lat: number
+          lng: number
+          updated_at: string
+          user_id: string
+          walk_session_id: string | null
+        }
+        Insert: {
+          accuracy?: number | null
+          lat: number
+          lng: number
+          updated_at?: string
+          user_id: string
+          walk_session_id?: string | null
+        }
+        Update: {
+          accuracy?: number | null
+          lat?: number
+          lng?: number
+          updated_at?: string
+          user_id?: string
+          walk_session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "walk_locations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "walk_locations_walk_session_id_fkey"
+            columns: ["walk_session_id"]
+            isOneToOne: false
+            referencedRelation: "walk_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       walk_sessions: {
         Row: {
           direction: Database["public"]["Enums"]["walk_direction"]
