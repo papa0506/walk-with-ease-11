@@ -1,5 +1,4 @@
 import "./lib/error-capture";
-import { seedAudioIfNeeded } from "./lib/audio-seed.server";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
@@ -43,12 +42,6 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      // 백그라운드: 오디오 파일 자동 생성 (이미 있으면 건너뜀, 요청 지연 없음)
-      if (ctx && typeof (ctx as any).waitUntil === "function") {
-        (ctx as any).waitUntil(seedAudioIfNeeded());
-      } else {
-        seedAudioIfNeeded().catch(() => {});
-      }
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
       console.error(error);
