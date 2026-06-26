@@ -18,6 +18,7 @@ import { Route as WalkIndexRouteImport } from './routes/walk.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as WalkStartRouteImport } from './routes/walk.start'
 import { Route as AuthPendingRouteImport } from './routes/auth.pending'
+import { Route as ApiTtsRouteImport } from './routes/api/tts'
 import { Route as AdminMilestonesRouteImport } from './routes/admin.milestones'
 import { Route as AdminHazardsRouteImport } from './routes/admin.hazards'
 import { Route as AdminFieldSurveyRouteImport } from './routes/admin.field-survey'
@@ -69,6 +70,11 @@ const AuthPendingRoute = AuthPendingRouteImport.update({
   path: '/pending',
   getParentRoute: () => AuthRoute,
 } as any)
+const ApiTtsRoute = ApiTtsRouteImport.update({
+  id: '/api/tts',
+  path: '/api/tts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminMilestonesRoute = AdminMilestonesRouteImport.update({
   id: '/admin/milestones',
   path: '/admin/milestones',
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/admin/field-survey': typeof AdminFieldSurveyRoute
   '/admin/hazards': typeof AdminHazardsRoute
   '/admin/milestones': typeof AdminMilestonesRoute
+  '/api/tts': typeof ApiTtsRoute
   '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
   '/admin/': typeof AdminIndexRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/admin/field-survey': typeof AdminFieldSurveyRoute
   '/admin/hazards': typeof AdminHazardsRoute
   '/admin/milestones': typeof AdminMilestonesRoute
+  '/api/tts': typeof ApiTtsRoute
   '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
   '/admin': typeof AdminIndexRoute
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   '/admin/field-survey': typeof AdminFieldSurveyRoute
   '/admin/hazards': typeof AdminHazardsRoute
   '/admin/milestones': typeof AdminMilestonesRoute
+  '/api/tts': typeof ApiTtsRoute
   '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
   '/admin/': typeof AdminIndexRoute
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
     | '/admin/field-survey'
     | '/admin/hazards'
     | '/admin/milestones'
+    | '/api/tts'
     | '/auth/pending'
     | '/walk/start'
     | '/admin/'
@@ -173,6 +183,7 @@ export interface FileRouteTypes {
     | '/admin/field-survey'
     | '/admin/hazards'
     | '/admin/milestones'
+    | '/api/tts'
     | '/auth/pending'
     | '/walk/start'
     | '/admin'
@@ -189,6 +200,7 @@ export interface FileRouteTypes {
     | '/admin/field-survey'
     | '/admin/hazards'
     | '/admin/milestones'
+    | '/api/tts'
     | '/auth/pending'
     | '/walk/start'
     | '/admin/'
@@ -206,6 +218,7 @@ export interface RootRouteChildren {
   AdminFieldSurveyRoute: typeof AdminFieldSurveyRoute
   AdminHazardsRoute: typeof AdminHazardsRoute
   AdminMilestonesRoute: typeof AdminMilestonesRoute
+  ApiTtsRoute: typeof ApiTtsRoute
   WalkStartRoute: typeof WalkStartRoute
   AdminIndexRoute: typeof AdminIndexRoute
   WalkIndexRoute: typeof WalkIndexRoute
@@ -276,6 +289,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthPendingRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/api/tts': {
+      id: '/api/tts'
+      path: '/api/tts'
+      fullPath: '/api/tts'
+      preLoaderRoute: typeof ApiTtsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/milestones': {
       id: '/admin/milestones'
       path: '/admin/milestones'
@@ -335,6 +355,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminFieldSurveyRoute: AdminFieldSurveyRoute,
   AdminHazardsRoute: AdminHazardsRoute,
   AdminMilestonesRoute: AdminMilestonesRoute,
+  ApiTtsRoute: ApiTtsRoute,
   WalkStartRoute: WalkStartRoute,
   AdminIndexRoute: AdminIndexRoute,
   WalkIndexRoute: WalkIndexRoute,
@@ -342,13 +363,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
