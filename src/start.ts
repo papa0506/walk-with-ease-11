@@ -5,7 +5,9 @@ import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 
 const attachNamsanSession = createMiddleware({ type: "function" }).client(async ({ next }) => {
   const token = window.localStorage.getItem("nw_session_token");
-  return next({ headers: token ? { "x-nw-session": token } : {} });
+  const safeToken = token && /^[a-f0-9]{64}$/i.test(token) ? token : null;
+  if (token && !safeToken) window.localStorage.removeItem("nw_session_token");
+  return next({ headers: safeToken ? { "x-nw-session": safeToken } : {} });
 });
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {

@@ -17,8 +17,17 @@ export function useMe() {
   const fn = useServerFn(getMe);
   const q = useQuery({
     queryKey: ["me"],
-    queryFn: async () => (await fn()).user as Me,
+    queryFn: async () => {
+      try {
+        return (await fn()).user as Me;
+      } catch (error) {
+        console.error("[useMe] failed", error);
+        if (typeof window !== "undefined") window.localStorage.removeItem("nw_session_token");
+        return null;
+      }
+    },
     staleTime: 30_000,
+    retry: false,
   });
   return q;
 }

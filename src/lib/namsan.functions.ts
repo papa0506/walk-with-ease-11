@@ -105,8 +105,13 @@ export const logout = createServerFn({ method: "POST" }).handler(async () => {
 export const getMe = createServerFn({ method: "GET" }).handler(async () => {
   const { userFromToken, publicUser } = await import("@/lib/namsan-auth.server");
   const token = await sessionTokenFromRequest();
-  const user = await userFromToken(token);
-  return { user: user ? publicUser(user) : null };
+  try {
+    const user = await userFromToken(token);
+    return { user: user ? publicUser(user) : null };
+  } catch (error) {
+    console.error("[getMe] session lookup failed", error);
+    return { user: null };
+  }
 });
 
 // ---------- Helper: require user / admin ----------
