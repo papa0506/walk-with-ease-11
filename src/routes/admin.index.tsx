@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { generateAudioFn } from "@/lib/audio-generate";
+import { useQuery } from "@tanstack/react-query";
 import { ShieldAlert, ClipboardCheck, MapPin, Ruler, AlertTriangle, Footprints, Volume2 } from "lucide-react";
 import { AppShell } from "@/components/walk/AppShell";
 import { StatusCard } from "@/components/walk/StatusCard";
