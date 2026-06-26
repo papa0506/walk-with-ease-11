@@ -598,6 +598,17 @@ export const getNearbyWalkers = createServerFn({ method: "POST" })
       }));
   });
 
+
+// 입구 목록 (위치 자동감지 & 방향 계산에 사용)
+export const getEntrances = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("entrances")
+    .select("id,code,name,lat,lng,accuracy")
+    .order("code");
+  return data ?? [];
+});
+
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371000;
   const toRad = (d: number) => (d * Math.PI) / 180;

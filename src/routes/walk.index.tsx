@@ -12,10 +12,10 @@ import { useAudioAnnouncer } from "@/hooks/useAudioAnnouncer";
 import {
   endWalk, nearbyHazards, hazardFeedback,
   nearbyLandmarks, upsertMyLocation,
-  getRouteWalkers, getWalkMilestones,
+  getRouteWalkers, getWalkMilestones, getEntrances,
 } from "@/lib/namsan.functions";
 
-const search = z.object({ walkId: z.string().optional() });
+const search = z.object({ walkId: z.string().optional(), entranceCode: z.string().optional() });
 
 export const Route = createFileRoute("/walk/")({
   head: () => ({ meta: [{ title: "산책 중 · 남산 산책" }] }),
@@ -24,6 +24,7 @@ export const Route = createFileRoute("/walk/")({
 });
 
 // ── 타입 ─────────────────────────────────────────────────
+type EntranceRow = { code: string; name: string; lat: number | null; lng: number | null };
 type Coords     = { lat: number; lng: number; acc: number; heading: number | null };
 type HazardLite = {
   id: string; type: string; label: string | null; side: string;
@@ -111,10 +112,16 @@ async function requestWakeLock(): Promise<WakeLockSentinel | null> {
   return null;
 }
 
+// 남산 북측순환로 입구 fallback 좌표 (DB에 없을 때 사용)
+const ENTRANCE_FALLBACK: Record<string, { lat: number; lng: number; name: string }> = {
+  NTH_THEATER:  { lat: 37.5538, lng: 126.9972, name: "국립극장 입구" },
+  NTH_CABLECAR: { lat: 37.5532, lng: 126.9839, name: "케이블카 방면 입구" },
+};
+
 // ── 컴포넌트 ─────────────────────────────────────────────
 function WalkScreen() {
   const { data: me } = useMe();
-  const { walkId }   = Route.useSearch();
+  const { walkId, entranceCode } = Route.useSearch();
   const navigate     = useNavigate();
   const audio        = useAudioAnnouncer();
 
@@ -124,7 +131,8 @@ function WalkScreen() {
   const landmarkFn     = useServerFn(nearbyLandmarks);
   const upsertLocFn    = useServerFn(upsertMyLocation);
   const routeWalkFn    = useServerFn(getRouteWalkers);
-  const getMilestonesFn = useServerFn(getWalkMilestones);
+  const getMilestonesFn  = useServerFn(getWalkMilestones);
+  const getEntrancesFn   = useServerFn(getEntrances);
 
   const [permission,   setPermission]   = useState<"idle"|"requested"|"granted"|"denied">("idle");
   const [coords,       setCoords]       = useState<Coords | null>(null);
@@ -150,6 +158,15 @@ function WalkScreen() {
   const lastTrackedDist    = useRef<number | null>(null);
   const trackedUserRef     = useRef<{ userId: string; name: string } | null>(null);
   const wakeLock           = useRef<WakeLockSentinel | null>(null);
+
+  // ── 방향 감지 ──────────────────────────────────────────────
+  const [walkDir, setWalkDir]       = useState<"outbound"|"returning">("outbound");
+  const walkDirRef                  = useRef<"outbound"|"returning">("outbound");
+  const startEntranceRef            = useRef<{ lat: number; lng: number; name: string; otherName: string } | null>(null);
+  const distHistory                 = useRef<number[]>([]);  // 최근 8개 distFromStart 이력
+  const dirAnnounced                = useRef(false);         // 방향 전환 중복 방지
+
+
 
   // ── 200m 안내 (마일스톤 앵커가 없는 구간 백업용) ───────────
   // 마일스톤 GPS 좌표 근처에서는 앵커링이 자동 안내하므로 중복 방지
@@ -226,10 +243,50 @@ function WalkScreen() {
           }
         }
 
-        if (lastPos.current) {
-          const d = hav(lastPos.current.lat, lastPos.current.lng, c.lat, c.lng);
-          if (d >= GPS_MIN_DIST) { setMeters(m => m + d); lastPos.current = c; }
-        } else { lastPos.current = c; }
+        // ── 거리 누적 + 방향 감지 ────────────────────────────
+        const entrance = startEntranceRef.current;
+        if (entrance) {
+          // 입구 기준: distFromStart = 이 지점에서 출발 입구까지 haversine
+          const distFromStart = hav(c.lat, c.lng, entrance.lat, entrance.lng);
+          setMeters(Math.round(distFromStart));
+
+          // 최근 이력에 추가 (최대 8개)
+          distHistory.current.push(distFromStart);
+          if (distHistory.current.length > 8) distHistory.current.shift();
+
+          // 방향 판단: 이력 6개 이상일 때 첫 번째 vs 마지막 비교
+          if (distHistory.current.length >= 6) {
+            const oldest = distHistory.current[0];
+            const newest = distHistory.current[distHistory.current.length - 1];
+            const wasOutbound = walkDirRef.current === "outbound";
+
+            if (wasOutbound && newest < oldest - 18) {
+              // 방향 전환: 출발지 쪽으로 돌아오는 중
+              walkDirRef.current = "returning";
+              setWalkDir("returning");
+              if (!dirAnnounced.current) {
+                dirAnnounced.current = true;
+                audio.announce(`${entrance.name} 방향으로 돌아가고 있습니다. 현재 약 ${Math.round(distFromStart)}미터 지점입니다.`);
+                setTimeout(() => { dirAnnounced.current = false; }, 30_000);
+              }
+            } else if (!wasOutbound && newest > oldest + 18) {
+              // 다시 앞으로 출발
+              walkDirRef.current = "outbound";
+              setWalkDir("outbound");
+              if (!dirAnnounced.current) {
+                dirAnnounced.current = true;
+                audio.announce(`${entrance.otherName} 방향으로 다시 진행합니다.`);
+                setTimeout(() => { dirAnnounced.current = false; }, 30_000);
+              }
+            }
+          }
+        } else {
+          // 입구 정보 없을 때: 기존 누적 방식
+          if (lastPos.current) {
+            const d = hav(lastPos.current.lat, lastPos.current.lng, c.lat, c.lng);
+            if (d >= GPS_MIN_DIST) { setMeters(m => m + d); lastPos.current = c; }
+          } else { lastPos.current = c; }
+        }
 
         const now = Date.now();
 
@@ -311,6 +368,36 @@ function WalkScreen() {
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── 입구 좌표 로드 → 방향 감지 기준점 설정 ─────────────────
+  useEffect(() => {
+    if (!entranceCode) return; // 입구 미선택 시 생략
+    getEntrancesFn().then(rows => {
+      const list = rows as EntranceRow[];
+      const selected = list.find(r => r.code === entranceCode);
+      const other    = list.find(r => r.code !== entranceCode && r.code !== "");
+      const selfFb   = ENTRANCE_FALLBACK[entranceCode];
+      const otherFb  = Object.entries(ENTRANCE_FALLBACK).find(([k]) => k !== entranceCode)?.[1];
+      const lat  = selected?.lat  ?? selfFb?.lat  ?? null;
+      const lng  = selected?.lng  ?? selfFb?.lng  ?? null;
+      const name = selected?.name ?? selfFb?.name ?? entranceCode;
+      const otherName = other?.name ?? otherFb?.name ?? "반대편 입구";
+      if (lat != null && lng != null) {
+        startEntranceRef.current = { lat, lng, name, otherName };
+        if (audio.voiceOn) {
+          audio.announce(`${name}에서 출발합니다. ${otherName} 방향으로 안내합니다.`);
+        }
+      }
+    }).catch(() => {
+      // fallback 좌표 사용
+      const fb = ENTRANCE_FALLBACK[entranceCode];
+      const otherFb = Object.entries(ENTRANCE_FALLBACK).find(([k]) => k !== entranceCode)?.[1];
+      if (fb) {
+        startEntranceRef.current = { lat: fb.lat, lng: fb.lng, name: fb.name, otherName: otherFb?.name ?? "반대편 입구" };
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entranceCode]);
 
   // ── Wake Lock: 산책 중 화면 꺼짐 방지 ───────────────────
   useEffect(() => {
@@ -394,7 +481,12 @@ function WalkScreen() {
       <div className="flex items-center justify-between gap-3 rounded-2xl border-2 border-foreground bg-card px-4 py-3">
         <div>
           <p className="text-lg font-extrabold">
-            {Math.round(meters)} m · 다음 안내 {nextAnnounce} m
+            {startEntranceRef.current
+              ? (walkDir === "outbound"
+                  ? `${startEntranceRef.current.otherName} 방향 · ${Math.round(meters)}m`
+                  : `${startEntranceRef.current.name} 복귀 중 · ${Math.round(meters)}m`)
+              : `${Math.round(meters)} m`}
+            {" · 다음 안내 "}{nextAnnounce} m
           </p>
           {coords && (
             <p className="text-sm text-muted-foreground">
