@@ -12,7 +12,7 @@ import { useAudioAnnouncer } from "@/hooks/useAudioAnnouncer";
 import {
   endWalk, nearbyHazards, hazardFeedback,
   nearbyLandmarks, upsertMyLocation,
-  getRouteWalkers,
+  getRouteWalkers, getWalkMilestones,
 } from "@/lib/namsan.functions";
 
 const search = z.object({ walkId: z.string().optional() });
@@ -43,13 +43,46 @@ type RouteWalker = {
 };
 
 // ── GPS 설정 ─────────────────────────────────────────────
-const GPS_ALPHA    = 0.25;
-const GPS_MAX_ACC  = 50;
-const GPS_MIN_DIST = 2;
-const BUF_SIZE     = 6;
+const GPS_MAX_ACC  = 50;   // 정확도 50m 초과 신호 무시
+const GPS_MIN_DIST = 2;    // 2m 이상 이동 시 거리 누적
+const MILESTONE_SNAP_M = 30; // 마일스톤 30m 이내 진입 시 위치 보정
 
 // 추적 알림 임계값(m)
 const TRACK_THRESHOLDS = [500, 200, 100, 50, 20];
+
+// ── Kalman 필터 (GPS 위치 보정) ───────────────────────────
+// 단순 지수평활 대신 Kalman 필터 사용 → 오차 누적 최소화
+class KalmanGPS {
+  private lat = 0; private lng = 0;
+  private P = 1e-3; // 초기 위치 불확실성 (도² 단위)
+  private initialized = false;
+
+  update(newLat: number, newLng: number, accuracyM: number): { lat: number; lng: number } {
+    // 측정 노이즈: GPS 정확도를 도 단위로 변환 (1도 ≈ 111km)
+    const R = Math.pow(accuracyM / 111_000, 2);
+    if (!this.initialized) {
+      this.lat = newLat; this.lng = newLng;
+      this.P = R; this.initialized = true;
+      return { lat: this.lat, lng: this.lng };
+    }
+    // 프로세스 노이즈 (이동에 의한 위치 변화)
+    const Q = 1e-8;
+    this.P += Q;
+    // Kalman 게인
+    const K = this.P / (this.P + R);
+    this.lat += K * (newLat - this.lat);
+    this.lng += K * (newLng - this.lng);
+    this.P *= (1 - K);
+    return { lat: this.lat, lng: this.lng };
+  }
+
+  // 마일스톤 좌표로 절대 위치 보정 (앵커링)
+  anchor(lat: number, lng: number, accuracyM: number) {
+    const R = Math.pow(accuracyM / 111_000, 2);
+    this.lat = lat; this.lng = lng;
+    this.P = R;
+  }
+}
 
 // ── 유틸 ─────────────────────────────────────────────────
 function hav(la1: number, lo1: number, la2: number, lo2: number) {
@@ -57,19 +90,6 @@ function hav(la1: number, lo1: number, la2: number, lo2: number) {
   const a = Math.sin(r(la2 - la1) / 2) ** 2 +
     Math.cos(r(la1)) * Math.cos(r(la2)) * Math.sin(r(lo2 - lo1) / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
-}
-function smooth(prev: Coords | null, next: Coords): Coords {
-  if (!prev) return next;
-  return { lat: prev.lat + GPS_ALPHA * (next.lat - prev.lat),
-           lng: prev.lng + GPS_ALPHA * (next.lng - prev.lng),
-           acc: next.acc, heading: next.heading };
-}
-function bufAvg(buf: { lat: number; lng: number; acc: number }[]) {
-  const g = buf.filter(r => r.acc <= GPS_MAX_ACC);
-  if (!g.length) return null;
-  let w = 0, la = 0, lo = 0;
-  for (const r of g) { const ww = 1 / (r.acc * r.acc); w += ww; la += r.lat * ww; lo += r.lng * ww; }
-  return { lat: la / w, lng: lo / w };
 }
 function sideLabel(s: string) {
   return s === "LEFT" ? "진행 방향 왼쪽"
@@ -98,12 +118,13 @@ function WalkScreen() {
   const navigate     = useNavigate();
   const audio        = useAudioAnnouncer();
 
-  const endFn       = useServerFn(endWalk);
-  const nearbyFn    = useServerFn(nearbyHazards);
-  const feedbackFn  = useServerFn(hazardFeedback);
-  const landmarkFn  = useServerFn(nearbyLandmarks);
-  const upsertLocFn = useServerFn(upsertMyLocation);
-  const routeWalkFn = useServerFn(getRouteWalkers);
+  const endFn          = useServerFn(endWalk);
+  const nearbyFn       = useServerFn(nearbyHazards);
+  const feedbackFn     = useServerFn(hazardFeedback);
+  const landmarkFn     = useServerFn(nearbyLandmarks);
+  const upsertLocFn    = useServerFn(upsertMyLocation);
+  const routeWalkFn    = useServerFn(getRouteWalkers);
+  const getMilestonesFn = useServerFn(getWalkMilestones);
 
   const [permission,   setPermission]   = useState<"idle"|"requested"|"granted"|"denied">("idle");
   const [coords,       setCoords]       = useState<Coords | null>(null);
@@ -115,9 +136,10 @@ function WalkScreen() {
   const [trackedDist,  setTrackedDist]  = useState<number | null>(null);
 
   const watchId           = useRef<number | null>(null);
-  const smoothedPos       = useRef<Coords | null>(null);
-  const recentBuf         = useRef<{ lat: number; lng: number; acc: number }[]>([]);
+  const kalman            = useRef(new KalmanGPS());
   const lastPos           = useRef<Coords | null>(null);
+  const milestonesRef     = useRef<{ id: string; meter: number; lat: number; lng: number; accuracy: number | null }[]>([]);
+  const snapAnnouncedRef  = useRef(new Set<string>());  // 마일스톤 앵커 중복 방지
   const lastHazardCheck   = useRef(0);
   const lastLandmarkCheck = useRef(0);
   const lastLocPush       = useRef(0);
@@ -129,12 +151,20 @@ function WalkScreen() {
   const trackedUserRef     = useRef<{ userId: string; name: string } | null>(null);
   const wakeLock           = useRef<WakeLockSentinel | null>(null);
 
-  // ── 200m 안내 ────────────────────────────────────────────
+  // ── 200m 안내 (마일스톤 앵커가 없는 구간 백업용) ───────────
+  // 마일스톤 GPS 좌표 근처에서는 앵커링이 자동 안내하므로 중복 방지
   const meterBucket = Math.floor(meters / 200);
+  const prevBucket  = useRef(-1);
   useEffect(() => {
     if (!audio.voiceOn || meters < 200) return;
+    if (meterBucket === prevBucket.current) return;
+    prevBucket.current = meterBucket;
     const cur = meterBucket * 200;
-    audio.announce(`${cur} 미터 지점입니다. 다음 안내는 ${cur + 200} 미터.`);
+    // 마일스톤 근처(±30m)에서는 앵커링이 이미 안내했으므로 스킵
+    const nearMs = milestonesRef.current.some(ms => Math.abs(ms.meter - cur) <= 30);
+    if (!nearMs) {
+      audio.announce(`약 ${cur} 미터 지점입니다. 다음 안내는 ${cur + 200} 미터.`);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meterBucket]);
 
@@ -173,12 +203,28 @@ function WalkScreen() {
         };
         if (raw.acc > GPS_MAX_ACC) return;
 
-        recentBuf.current = [...recentBuf.current, raw].slice(-BUF_SIZE);
-        const avg = bufAvg(recentBuf.current);
-        const blended: Coords = avg ? { ...raw, lat: avg.lat, lng: avg.lng } : raw;
-        const c = smooth(smoothedPos.current, blended);
-        smoothedPos.current = c;
+        // Kalman 필터로 위치 평활화 (지수평활 대비 오차 누적 최소화)
+        const filtered = kalman.current.update(raw.lat, raw.lng, raw.acc);
+        const c: Coords = { ...raw, lat: filtered.lat, lng: filtered.lng };
         setCoords(c);
+
+        // 마일스톤 앵커링: 기록된 GPS 좌표 30m 이내 진입 시 위치 보정
+        for (const ms of milestonesRef.current) {
+          const distToMs = hav(c.lat, c.lng, ms.lat, ms.lng);
+          if (distToMs <= MILESTONE_SNAP_M && !snapAnnouncedRef.current.has(ms.id)) {
+            snapAnnouncedRef.current.add(ms.id);
+            // Kalman 필터 앵커 업데이트 (절대 위치 보정)
+            kalman.current.anchor(ms.lat, ms.lng, ms.accuracy ?? 10);
+            // 누적 거리도 마일스톤 값으로 보정
+            setMeters(ms.meter);
+            if (audio.voiceOn) {
+              audio.announce(`${ms.meter}미터 지점입니다. 다음 안내는 ${ms.meter + 200}미터.`);
+            }
+            // 재진입 허용: 30m 벗어나면 다시 알릴 수 있게
+            setTimeout(() => snapAnnouncedRef.current.delete(ms.id), 60_000);
+            break;
+          }
+        }
 
         if (lastPos.current) {
           const d = hav(lastPos.current.lat, lastPos.current.lng, c.lat, c.lng);
@@ -194,10 +240,10 @@ function WalkScreen() {
             .then(r => setHazards(r as HazardLite[])).catch(() => {});
         }
 
-        // 랜드마크 폴링 (30초)
-        if (now - lastLandmarkCheck.current > 30_000) {
+        // 랜드마크 폴링 (10초, 반경 65m — 접근 전 미리 안내)
+        if (now - lastLandmarkCheck.current > 10_000) {
           lastLandmarkCheck.current = now;
-          landmarkFn({ data: { lat: c.lat, lng: c.lng, radiusM: 35 } })
+          landmarkFn({ data: { lat: c.lat, lng: c.lng, radiusM: 65 } })
             .then(rows => {
               (rows as LandmarkLite[]).forEach(lm => {
                 if (announcedLandmarks.current.has(lm.id)) return;
@@ -255,6 +301,16 @@ function WalkScreen() {
     if (watchId.current != null) { navigator.geolocation.clearWatch(watchId.current); watchId.current = null; }
   }
   useEffect(() => () => stopGps(), []);
+
+  // ── 마일스톤 로드 (위치 보정 앵커 데이터) ───────────────
+  useEffect(() => {
+    getMilestonesFn().then(rows => {
+      milestonesRef.current = (rows as any[])
+        .filter(m => m.lat != null && m.lng != null)
+        .map(m => ({ id: m.id, meter: m.meter, lat: m.lat, lng: m.lng, accuracy: m.accuracy }));
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Wake Lock: 산책 중 화면 꺼짐 방지 ───────────────────
   useEffect(() => {

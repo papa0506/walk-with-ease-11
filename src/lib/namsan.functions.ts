@@ -486,17 +486,31 @@ export const nearbyLandmarks = createServerFn({ method: "POST" })
   .inputValidator((i: { lat: number; lng: number; radiusM?: number }) => i)
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // verified=true(검증됨)와 verified=false(관리자 현장 기록) 모두 포함
+    // 관리자가 현장에서 찍은 데이터를 즉시 안내에 활용
     const { data: rows, error } = await supabaseAdmin
       .from("landmarks")
-      .select("id,name,type,custom_name,announcement,direction_hint,side,route_meter,lat,lng")
-      .eq("verified", true);
+      .select("id,name,type,custom_name,announcement,direction_hint,side,route_meter,lat,lng,verified");
     if (error) throw new Error(error.message);
-    const R = data.radiusM ?? 35;
+    const R = data.radiusM ?? 65;  // 35m → 65m: 접근 전 미리 안내
     return (rows ?? []).filter((lm: { lat: number | null; lng: number | null }) => {
       if (lm.lat == null || lm.lng == null) return false;
       return haversine(data.lat, data.lng, lm.lat, lm.lng) <= R;
     });
   });
+
+// 산책 시작 시 마일스톤 좌표 로드 (위치 보정 앵커용)
+export const getWalkMilestones = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("milestones")
+    .select("id,meter,lat,lng,accuracy,survey_direction,basis_entrance(code)")
+    .not("lat", "is", null)
+    .not("lng", "is", null)
+    .order("meter");
+  if (error) throw new Error(error.message);
+  return data ?? [];
+});
 
 // ---------- LOCATION SHARING ----------
 
