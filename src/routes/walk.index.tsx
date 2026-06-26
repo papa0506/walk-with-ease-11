@@ -8,7 +8,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { AppShell } from "@/components/walk/AppShell";
 import { useMe } from "@/hooks/useMe";
-import { useAudioAnnouncer } from "@/hooks/useAudioAnnouncer";
+import { useWalkAudio } from "@/hooks/useWalkAudio";
+import { ALL_PRELOAD_PHRASES } from "@/lib/walk-phrases";
 import {
   endWalk, nearbyHazards, hazardFeedback,
   nearbyLandmarks, upsertMyLocation,
@@ -123,7 +124,7 @@ function WalkScreen() {
   const { data: me } = useMe();
   const { walkId, entranceCode } = Route.useSearch();
   const navigate     = useNavigate();
-  const audio        = useAudioAnnouncer();
+  const audio        = useWalkAudio();
 
   const endFn          = useServerFn(endWalk);
   const nearbyFn       = useServerFn(nearbyHazards);
@@ -142,7 +143,6 @@ function WalkScreen() {
   const [showWalkers,  setShowWalkers]  = useState(false);
   const [trackedUser,  setTrackedUser]  = useState<{ userId: string; name: string } | null>(null);
   const [trackedDist,  setTrackedDist]  = useState<number | null>(null);
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
 
   const watchId           = useRef<number | null>(null);
   const kalman            = useRef(new KalmanGPS());
@@ -181,7 +181,7 @@ function WalkScreen() {
     // 마일스톤 근처(±30m)에서는 앵커링이 이미 안내했으므로 스킵
     const nearMs = milestonesRef.current.some(ms => Math.abs(ms.meter - cur) <= 30);
     if (!nearMs) {
-      audio.announce(`약 ${cur} 미터 지점입니다. 다음 안내는 ${cur + 200} 미터.`);
+      audio.speak(`약 ${cur} 미터 지점입니다. 다음 안내는 ${cur + 200} 미터.`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meterBucket]);
@@ -195,7 +195,7 @@ function WalkScreen() {
     for (const th of TRACK_THRESHOLDS) {
       if (trackedDist <= th && (prev == null || prev > th) && !trackedThresholds.current.has(th)) {
         trackedThresholds.current.add(th);
-        audio.announce(
+        audio.speak(
           th <= 20
             ? `${trackedUser.name}님을 곧 만납니다!`
             : `${trackedUser.name}님과 ${th}미터 거리입니다.`,
@@ -236,7 +236,7 @@ function WalkScreen() {
             // 누적 거리도 마일스톤 값으로 보정
             setMeters(ms.meter);
             if (audio.voiceOn) {
-              audio.announce(`${ms.meter}미터 지점입니다. 다음 안내는 ${ms.meter + 200}미터.`);
+              audio.speak(`${ms.meter}미터 지점입니다. 다음 안내는 ${ms.meter + 200}미터.`);
             }
             // 재진입 허용: 30m 벗어나면 다시 알릴 수 있게
             setTimeout(() => snapAnnouncedRef.current.delete(ms.id), 60_000);
@@ -267,7 +267,7 @@ function WalkScreen() {
               setWalkDir("returning");
               if (!dirAnnounced.current) {
                 dirAnnounced.current = true;
-                audio.announce(`${entrance.name} 방향으로 돌아가고 있습니다. 현재 약 ${Math.round(distFromStart)}미터 지점입니다.`);
+                audio.speak(`${entrance.name} 방향으로 돌아가고 있습니다. 현재 약 ${Math.round(distFromStart)}미터 지점입니다.`);
                 setTimeout(() => { dirAnnounced.current = false; }, 30_000);
               }
             } else if (!wasOutbound && newest > oldest + 18) {
@@ -276,7 +276,7 @@ function WalkScreen() {
               setWalkDir("outbound");
               if (!dirAnnounced.current) {
                 dirAnnounced.current = true;
-                audio.announce(`${entrance.otherName} 방향으로 다시 진행합니다.`);
+                audio.speak(`${entrance.otherName} 방향으로 다시 진행합니다.`);
                 setTimeout(() => { dirAnnounced.current = false; }, 30_000);
               }
             }
@@ -307,7 +307,7 @@ function WalkScreen() {
                 if (announcedLandmarks.current.has(lm.id)) return;
                 announcedLandmarks.current.add(lm.id);
                 setTimeout(() => announcedLandmarks.current.delete(lm.id), 30_000);
-                audio.announce(
+                audio.speak(
                   lm.announcement ?? `${sideLabel(lm.side)}에 ${lm.custom_name ?? lm.name}이(가) 있습니다.`
                 );
               });
@@ -343,7 +343,7 @@ function WalkScreen() {
                 if (announcedNearby.current.has(w.userId)) return;
                 announcedNearby.current.add(w.userId);
                 setTimeout(() => announcedNearby.current.delete(w.userId), 90_000);
-                audio.announce(`${w.name}님이 근처 ${w.distance}미터에 계십니다.`);
+                audio.speak(`${w.name}님이 근처 ${w.distance}미터에 계십니다.`);
               });
               const nearSet = new Set(list.filter(w => w.distance != null && w.distance <= 150).map(w => w.userId));
               announcedNearby.current.forEach(id => { if (!nearSet.has(id)) announcedNearby.current.delete(id); });
@@ -391,8 +391,10 @@ function WalkScreen() {
       const otherName = other?.name ?? otherFb?.name ?? "반대편 입구";
       if (lat != null && lng != null) {
         startEntranceRef.current = { lat, lng, name, otherName };
+        // 사전 음성 캐시 로딩 (비동기 백그라운드)
+        audio.preload(ALL_PRELOAD_PHRASES);
         if (audio.voiceOn) {
-          audio.announce(`${name}에서 출발합니다. ${otherName} 방향으로 안내합니다.`);
+          audio.speak(`${name}에서 출발합니다. ${otherName} 방향으로 안내합니다.`);
         }
       }
     }).catch(() => {
@@ -427,11 +429,11 @@ function WalkScreen() {
     setTrackedDist(w.distance);
     lastTrackedDist.current = w.distance;
     trackedThresholds.current.clear();
-    audio.announce(`${w.name}님 추적을 시작합니다.`, { beep: false });
+    audio.speak(`${w.name}님 추적을 시작합니다.`, { beep: false });
     setShowWalkers(false);
   }
   function stopTracking() {
-    audio.announce(`${trackedUser?.name}님 추적을 종료합니다.`, { beep: false });
+    audio.speak(`${trackedUser?.name}님 추적을 종료합니다.`, { beep: false });
     setTrackedUser(null); trackedUserRef.current = null;
     setTrackedDist(null); lastTrackedDist.current = null;
   }
@@ -476,7 +478,7 @@ function WalkScreen() {
       />
 
       {/* 음성 허용 버튼 — 첫 탭에서 AudioContext 잠금 해제 (iOS/Android 필수) */}
-      {!audioUnlocked && (
+      {!audio.audioUnlocked && (
         <button
           type="button"
           className="btn-primary"
@@ -484,11 +486,11 @@ function WalkScreen() {
           onClick={() => {
             audio.unlockAudio();
             audio.setVoiceOn(true);
-            setAudioUnlocked(true);
+            
             // 입구명 포함 시작 안내
             const entranceName = startEntranceRef.current?.name ?? "";
             setTimeout(() => {
-              audio.announce(
+              audio.speak(
                 entranceName
                   ? `${entranceName} 입구에서 출발합니다. 음성 안내가 시작됩니다.`
                   : "산책을 시작합니다. 음성 안내가 시작됩니다."
@@ -520,7 +522,7 @@ function WalkScreen() {
         {/* 음성 토글 */}
         <button type="button" className="btn-secondary min-h-12 px-3"
           onClick={() => {
-            if (!audioUnlocked) { audio.unlockAudio(); setAudioUnlocked(true); }
+            if (!audio.audioUnlocked) { audio.unlockAudio(); }
             audio.setVoiceOn(!audio.voiceOn);
           }}
           aria-label={audio.voiceOn ? "음성 안내 끄기" : "음성 안내 켜기"}
