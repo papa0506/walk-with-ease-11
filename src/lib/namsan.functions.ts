@@ -618,3 +618,43 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number) {
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
 }
+
+// 마일스톤 개별 삭제
+export const adminDeleteMilestone = createServerFn({ method: "POST" })
+  .validator((d: unknown) => d as { id: string })
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("milestones").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// 마일스톤 전체 삭제
+export const adminDeleteAllMilestones = createServerFn({ method: "POST" })
+  .handler(async () => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("milestones").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// 랜드마크 개별 삭제
+export const adminDeleteLandmark = createServerFn({ method: "POST" })
+  .validator((d: unknown) => d as { id: string })
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("landmarks").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// 랜드마크 전체 목록 (관리자용)
+export const adminListLandmarks = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("landmarks")
+    .select("id,name,type,side,survey_direction,accuracy,verified,created_at")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+});

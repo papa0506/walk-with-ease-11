@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { MapPin, Save, RefreshCw } from "lucide-react";
+import { MapPin, Save, RefreshCw, Trash2, CheckCircle, Circle } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/walk/AppShell";
 import { StatusCard } from "@/components/walk/StatusCard";
-import { adminSaveLandmark } from "@/lib/namsan.functions";
+import { adminSaveLandmark, adminListLandmarks, adminDeleteLandmark } from "@/lib/namsan.functions";
+import { useQuery } from "@tanstack/react-query";
 import { useGpsAverage } from "@/hooks/useGpsAverage";
 
 export const Route = createFileRoute("/admin/field-survey")({
@@ -32,7 +33,14 @@ const SURVEY_OPTIONS: { key: SurveyDir; label: string }[] = [
 
 function FieldSurvey() {
   const gps    = useGpsAverage(12); // 12개 샘플 (더 정밀하게)
-  const saveFn = useServerFn(adminSaveLandmark);
+  const saveFn     = useServerFn(adminSaveLandmark);
+  const listFn     = useServerFn(adminListLandmarks);
+  const deleteFn   = useServerFn(adminDeleteLandmark);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const { data: landmarks = [], refetch: refetchList } = useQuery({
+    queryKey: ["landmarks-admin"],
+    queryFn: () => listFn(),
+  });
 
   const [name,         setName]         = useState("");
   const [type,         setType]         = useState("");
@@ -59,6 +67,7 @@ function FieldSurvey() {
       }});
       setMsg(`저장됨 (정확도 약 ${pos.accuracy.toFixed(1)}m, ${pos.sampleCount}개 평균)`);
       setName(""); setType(""); setAnnouncement(""); setDirection("");
+      refetchList();
     } catch (e: unknown) { setMsg(e instanceof Error ? e.message : "저장 실패"); }
     finally { setBusy(false); }
   }
@@ -160,6 +169,44 @@ function FieldSurvey() {
         <p className="rounded-xl border-2 border-foreground bg-card px-4 py-3 text-lg font-bold">
           {msg}
         </p>
+      )}
+
+      {/* 저장된 랜드마크 목록 */}
+      {landmarks.length > 0 && (
+        <section aria-label="저장된 랜드마크 목록" className="space-y-2">
+          <h2 className="text-lg font-extrabold">저장된 랜드마크 ({landmarks.length}개)</h2>
+          {(landmarks as any[]).map((lm) => (
+            <div key={lm.id} className="status-card flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-base font-extrabold">{lm.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {lm.type ? `${lm.type} · ` : ""}{lm.side} · 오차 {lm.accuracy != null ? `약 ${Math.round(lm.accuracy)}m` : "—"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(lm.created_at).toLocaleString("ko-KR")}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {lm.verified
+                  ? <CheckCircle size={18} aria-label="검증됨" className="text-green-500" />
+                  : <Circle size={18} aria-label="미검증" className="text-muted-foreground" />
+                }
+                <button
+                  className="rounded-lg border-2 border-foreground p-1"
+                  onClick={async () => {
+                    if (!confirm(`"${lm.name}"을(를) 삭제합니까?`)) return;
+                    setDeleting(lm.id);
+                    try { await deleteFn({ data: { id: lm.id } }); await refetchList(); }
+                    finally { setDeleting(null); }
+                  }}
+                  disabled={deleting !== null}
+                  aria-label={`${lm.name} 삭제`}>
+                  <Trash2 aria-hidden size={16} className="text-red-500" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </section>
       )}
     </AppShell>
   );

@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Ruler, CheckCircle, Circle, RefreshCw } from "lucide-react";
+import { Ruler, CheckCircle, Circle, RefreshCw, Trash2, AlertTriangle } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/walk/AppShell";
 import { StatusCard } from "@/components/walk/StatusCard";
-import { adminSaveMilestone, adminListMilestones } from "@/lib/namsan.functions";
+import { adminSaveMilestone, adminListMilestones, adminDeleteMilestone, adminDeleteAllMilestones } from "@/lib/namsan.functions";
 import { useGpsAverage } from "@/hooks/useGpsAverage";
 
 export const Route = createFileRoute("/admin/milestones")({
@@ -47,8 +47,11 @@ function Milestones() {
   const [msg,   setMsg]   = useState<string | null>(null);
   const [busy,  setBusy]  = useState(false);
 
-  const saveFn  = useServerFn(adminSaveMilestone);
-  const listFn  = useServerFn(adminListMilestones);
+  const saveFn     = useServerFn(adminSaveMilestone);
+  const listFn     = useServerFn(adminListMilestones);
+  const deleteFn   = useServerFn(adminDeleteMilestone);
+  const deleteAllFn = useServerFn(adminDeleteAllMilestones);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const gps     = useGpsAverage(TARGET_SAMPLES);
   const prevGpsStatus = useRef<string>("idle");
 
@@ -253,7 +256,22 @@ function Milestones() {
       {/* 기록된 마일스톤 목록 */}
       {existing.length > 0 && (
         <section aria-label="기록된 거리 표지 목록" className="space-y-2">
-          <h2 className="text-lg font-extrabold">기록된 거리 표지 ({existing.length}개)</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-extrabold">기록된 거리 표지 ({existing.length}개)</h2>
+            <button
+              className="btn-secondary flex items-center gap-1 px-3 py-1 text-sm"
+              onClick={async () => {
+                if (!confirm(`마일스톤 ${existing.length}개를 모두 삭제합니까?`)) return;
+                setDeleting("all");
+                try { await deleteAllFn(); await refetch(); }
+                finally { setDeleting(null); }
+              }}
+              disabled={deleting !== null}
+              aria-label="마일스톤 전체 삭제">
+              <Trash2 aria-hidden size={16} />
+              {deleting === "all" ? "삭제 중..." : "전체 삭제"}
+            </button>
+          </div>
           {existing.map((m: any) => (
             <div key={m.id} className="status-card flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
@@ -265,10 +283,24 @@ function Milestones() {
                   {m.measured_at ? ` · ${new Date(m.measured_at).toLocaleString("ko-KR")}` : ""}
                 </p>
               </div>
-              {m.verified
-                ? <CheckCircle size={22} aria-label="검증됨" className="shrink-0 text-green-500" />
-                : <Circle size={22} aria-label="미검증" className="shrink-0 text-muted-foreground" />
-              }
+              <div className="flex shrink-0 items-center gap-2">
+                {m.verified
+                  ? <CheckCircle size={22} aria-label="검증됨" className="text-green-500" />
+                  : <Circle size={22} aria-label="미검증" className="text-muted-foreground" />
+                }
+                <button
+                  className="rounded-lg border-2 border-foreground p-1"
+                  onClick={async () => {
+                    if (!confirm(`${m.meter}m 지점을 삭제합니까?`)) return;
+                    setDeleting(m.id);
+                    try { await deleteFn({ data: { id: m.id } }); await refetch(); }
+                    finally { setDeleting(null); }
+                  }}
+                  disabled={deleting !== null}
+                  aria-label={`${m.meter}m 삭제`}>
+                  <Trash2 aria-hidden size={16} className="text-red-500" />
+                </button>
+              </div>
             </div>
           ))}
         </section>
