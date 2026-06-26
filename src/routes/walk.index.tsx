@@ -9,7 +9,6 @@ import { z } from "zod";
 import { AppShell } from "@/components/walk/AppShell";
 import { useMe } from "@/hooks/useMe";
 import { useWalkAudio } from "@/hooks/useWalkAudio";
-import { ALL_PRELOAD_PHRASES } from "@/lib/walk-phrases";
 import {
   endWalk, nearbyHazards, hazardFeedback,
   nearbyLandmarks, upsertMyLocation,
@@ -181,7 +180,7 @@ function WalkScreen() {
     // 마일스톤 근처(±30m)에서는 앵커링이 이미 안내했으므로 스킵
     const nearMs = milestonesRef.current.some(ms => Math.abs(ms.meter - cur) <= 30);
     if (!nearMs) {
-      audio.speak(`약 ${cur} 미터 지점입니다. 다음 안내는 ${cur + 200} 미터.`);
+      audio.speakDistance(cur);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meterBucket]);
@@ -198,8 +197,7 @@ function WalkScreen() {
         audio.speak(
           th <= 20
             ? `${trackedUser.name}님을 곧 만납니다!`
-            : `${trackedUser.name}님과 ${th}미터 거리입니다.`,
-          { urgent: th <= 100 }
+            : `${trackedUser.name}님과 ${th}미터 거리입니다.`
         );
         break;
       }
@@ -236,7 +234,7 @@ function WalkScreen() {
             // 누적 거리도 마일스톤 값으로 보정
             setMeters(ms.meter);
             if (audio.voiceOn) {
-              audio.speak(`${ms.meter}미터 지점입니다. 다음 안내는 ${ms.meter + 200}미터.`);
+              audio.speakDistance(ms.meter);
             }
             // 재진입 허용: 30m 벗어나면 다시 알릴 수 있게
             setTimeout(() => snapAnnouncedRef.current.delete(ms.id), 60_000);
@@ -267,7 +265,9 @@ function WalkScreen() {
               setWalkDir("returning");
               if (!dirAnnounced.current) {
                 dirAnnounced.current = true;
-                audio.speak(`${entrance.name} 방향으로 돌아가고 있습니다. 현재 약 ${Math.round(distFromStart)}미터 지점입니다.`);
+                audio.speakByKey(
+                    entrance.name.includes("국립극장") ? "dir-return-theater" : "dir-fwd-cablecar"
+                  );
                 setTimeout(() => { dirAnnounced.current = false; }, 30_000);
               }
             } else if (!wasOutbound && newest > oldest + 18) {
@@ -276,7 +276,9 @@ function WalkScreen() {
               setWalkDir("outbound");
               if (!dirAnnounced.current) {
                 dirAnnounced.current = true;
-                audio.speak(`${entrance.otherName} 방향으로 다시 진행합니다.`);
+                audio.speakByKey(
+                    entrance.otherName.includes("케이블카") ? "dir-fwd-cablecar" : "dir-return-theater"
+                  );
                 setTimeout(() => { dirAnnounced.current = false; }, 30_000);
               }
             }
@@ -307,8 +309,11 @@ function WalkScreen() {
                 if (announcedLandmarks.current.has(lm.id)) return;
                 announcedLandmarks.current.add(lm.id);
                 setTimeout(() => announcedLandmarks.current.delete(lm.id), 30_000);
-                audio.speak(
-                  lm.announcement ?? `${sideLabel(lm.side)}에 ${lm.custom_name ?? lm.name}이(가) 있습니다.`
+                audio.speakLandmark(
+                  lm.side,
+                  lm.custom_name ?? lm.name,
+                  false,
+                  lm.announcement,
                 );
               });
             }).catch(() => {});
@@ -392,9 +397,17 @@ function WalkScreen() {
       if (lat != null && lng != null) {
         startEntranceRef.current = { lat, lng, name, otherName };
         // 사전 음성 캐시 로딩 (비동기 백그라운드)
-        audio.preload(ALL_PRELOAD_PHRASES);
+        // 모든 거리/방향 파일 사전 로드
+        const distKeys = Array.from({length: 17}, (_, i) => `d${(i+1)*200}`);
+        audio.preload([
+          ...distKeys,
+          "dir-return-theater", "dir-fwd-cablecar",
+          "side-left", "side-right", "side-front", "side-both", "side-near",
+          "v-here", "v-caution",
+        ]);
         if (audio.voiceOn) {
-          audio.speak(`${name}에서 출발합니다. ${otherName} 방향으로 안내합니다.`);
+          const startKey = entranceCode === "NTH_THEATER" ? "ent-start-theater" : "ent-start-cablecar";
+          audio.speakByKey(startKey);
         }
       }
     }).catch(() => {
@@ -429,11 +442,11 @@ function WalkScreen() {
     setTrackedDist(w.distance);
     lastTrackedDist.current = w.distance;
     trackedThresholds.current.clear();
-    audio.speak(`${w.name}님 추적을 시작합니다.`, { beep: false });
+    audio.speak(`${w.name}님 추적을 시작합니다.`);
     setShowWalkers(false);
   }
   function stopTracking() {
-    audio.speak(`${trackedUser?.name}님 추적을 종료합니다.`, { beep: false });
+    audio.speak(`${trackedUser?.name}님 추적을 종료합니다.`);
     setTrackedUser(null); trackedUserRef.current = null;
     setTrackedDist(null); lastTrackedDist.current = null;
   }
@@ -490,11 +503,11 @@ function WalkScreen() {
             // 입구명 포함 시작 안내
             const entranceName = startEntranceRef.current?.name ?? "";
             setTimeout(() => {
-              audio.speak(
-                entranceName
-                  ? `${entranceName} 입구에서 출발합니다. 음성 안내가 시작됩니다.`
-                  : "산책을 시작합니다. 음성 안내가 시작됩니다."
-              );
+              // static 파일 우선: 입구 코드가 있으면 맞는 키, 없으면 sys-start
+              const startAudioKey = entranceCode === "NTH_THEATER"  ? "ent-start-theater"
+                                  : entranceCode === "NTH_CABLECAR" ? "ent-start-cablecar"
+                                  : "sys-start";
+              audio.speakByKey(startAudioKey);
             }, 300);
           }}
           aria-label="음성 안내 시작 — 탭하면 GPS 위치와 음성이 활성화됩니다">
