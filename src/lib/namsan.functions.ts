@@ -626,7 +626,7 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number) {
 
 // 마일스톤 개별 삭제
 export const adminDeleteMilestone = createServerFn({ method: "POST" })
-  .validator((d: unknown) => d as { id: string })
+  .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("milestones").delete().eq("id", data.id);
@@ -645,7 +645,7 @@ export const adminDeleteAllMilestones = createServerFn({ method: "POST" })
 
 // 랜드마크 개별 삭제
 export const adminDeleteLandmark = createServerFn({ method: "POST" })
-  .validator((d: unknown) => d as { id: string })
+  .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("landmarks").delete().eq("id", data.id);
