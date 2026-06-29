@@ -199,3 +199,34 @@
   border-radius: 1.25rem;
   box-shadow: 0 3px 0 0 var(--foreground);
 }
+
+@utility bento-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 168px;
+  padding: 1.125rem;
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 3px solid var(--foreground);
+  border-radius: 1.5rem;
+  box-shadow: 0 5px 0 0 var(--foreground);
+  transition: transform 0.06s ease, box-shadow 0.06s ease;
+  &:active {
+    transform: translateY(4px);
+    box-shadow: 0 1px 0 0 var(--foreground);
+  }
+}
+@utility bento-tile-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+@utility bento-tile-dark {
+  background: var(--foreground);
+  color: var(--background);
+}
+@utility bento-tile-accent {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
