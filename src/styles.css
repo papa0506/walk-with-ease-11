@@ -42,47 +42,56 @@
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
 
-  --font-display: "Pretendard", system-ui, -apple-system, sans-serif;
-  --font-body: "Pretendard", system-ui, -apple-system, sans-serif;
+  --font-display: "Archivo Black", "Pretendard", system-ui, sans-serif;
+  --font-body: "Hind", "Pretendard", system-ui, sans-serif;
 
-  --shadow-card: 0 2px 0 0 var(--border);
-  --shadow-lift: 0 8px 24px -8px color-mix(in oklab, var(--foreground) 25%, transparent);
+  --shadow-card: 0 4px 0 0 var(--foreground);
+  --shadow-lift: 0 10px 28px -8px color-mix(in oklab, var(--foreground) 35%, transparent);
 }
 
 :root {
-  --radius: 1rem;
+  --radius: 1.25rem;
 
-  /* 고대비 라이트 테마 */
-  --background: oklch(0.99 0.005 90);
-  --foreground: oklch(0.16 0.01 260);
-  --surface: oklch(0.97 0.008 90);
-  --surface-foreground: oklch(0.16 0.01 260);
+  /* 화이트 + 블랙 + 오렌지 — 고대비 저시력 친화 */
+  --background: oklch(0.995 0 0);
+  --foreground: oklch(0.12 0 0);
+  --surface: oklch(0.97 0 0);
+  --surface-foreground: oklch(0.12 0 0);
 
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.16 0.01 260);
+  --card-foreground: oklch(0.12 0 0);
 
-  --muted: oklch(0.94 0.01 90);
-  --muted-foreground: oklch(0.38 0.015 260);
+  --muted: oklch(0.95 0 0);
+  --muted-foreground: oklch(0.32 0 0);
 
-  --border: oklch(0.16 0.01 260);
-  --ring: oklch(0.55 0.18 50);
+  --border: oklch(0.12 0 0);
+  --ring: oklch(0.68 0.21 45);
 
-  /* Primary: 따뜻한 앰버 — 시각적으로 식별이 쉽고 어두운 텍스트 위에서도 식별 가능 */
-  --primary: oklch(0.72 0.17 55);
-  --primary-foreground: oklch(0.16 0.01 260);
+  /* Primary: 강렬한 오렌지 #FF6B00 */
+  --primary: oklch(0.7 0.21 45);
+  --primary-foreground: oklch(0.12 0 0);
 
-  --secondary: oklch(0.16 0.01 260);
-  --secondary-foreground: oklch(0.99 0.005 90);
+  --secondary: oklch(0.12 0 0);
+  --secondary-foreground: oklch(0.995 0 0);
 
-  /* Status — 색상 + 아이콘 + 라벨 함께 사용 */
-  --success: oklch(0.55 0.15 150);
-  --success-foreground: oklch(0.99 0 0);
-  --warning: oklch(0.78 0.16 75);
-  --warning-foreground: oklch(0.16 0.01 260);
-  --danger: oklch(0.55 0.22 25);
-  --danger-foreground: oklch(0.99 0 0);
-  --info: oklch(0.5 0.15 240);
-  --info-foreground: oklch(0.99 0 0);
+  /* Accent blue #1E40AF — 보조 강조 */
+  --accent: oklch(0.38 0.18 264);
+  --accent-foreground: oklch(0.995 0 0);
+
+  /* Status */
+  --success: oklch(0.55 0.17 150);
+  --success-foreground: oklch(0.995 0 0);
+  --warning: oklch(0.78 0.17 75);
+  --warning-foreground: oklch(0.12 0 0);
+  --danger: oklch(0.55 0.23 25);
+  --danger-foreground: oklch(0.995 0 0);
+  --info: oklch(0.38 0.18 264);
+  --info-foreground: oklch(0.995 0 0);
+}
+
+@theme inline {
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
 }
 
 @layer base {
