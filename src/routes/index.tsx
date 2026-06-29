@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
-  Footprints, PhoneCall, ChevronRight, LogIn, LogOut, ShieldAlert,
-  AlertTriangle, Settings as SettingsIcon,
+  Footprints, PhoneCall, LogIn, LogOut, ShieldAlert,
+  AlertTriangle, Settings as SettingsIcon, ArrowUpRight,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/walk/AppShell";
@@ -63,61 +63,92 @@ function Home() {
 
   return (
     <AppShell
-      title={me ? `${me.name}님,\n오늘도 안전하게 걸어요` : "남산 산책 동반자"}
+      title={me ? `${me.name}님,\n안전한 산책` : "남산\n산책 동반자"}
       topRight={topRight}
       bottomAction={
         <Link to="/walk/start" className="btn-primary" aria-label="산책로 기본 안내 시작">
-          <Footprints aria-hidden="true" size={28} /> 산책로 기본 안내 시작
+          <Footprints aria-hidden="true" size={28} /> 산책 시작하기
         </Link>
       }
     >
-      <nav aria-label="주요 메뉴" className="space-y-3">
-        <MenuRow
+      <nav aria-label="주요 메뉴" className="grid grid-cols-2 gap-4">
+        <BentoTile
           to="/walk/start"
-          icon={<Footprints aria-hidden size={28} />}
+          variant="primary"
+          colSpan={2}
+          icon={<Footprints aria-hidden size={44} />}
           title="산책 시작"
-          subtitle="경로를 고르고 음성 안내를 시작합니다"
+          subtitle="경로 선택 · 음성 안내"
         />
-        <MenuRow
+        <BentoTile
           to="/report-hazard"
-          icon={<AlertTriangle aria-hidden size={28} />}
-          title="공사 및 위험 신고"
-          subtitle="공사·차량·장애물·미끄럼 위험을 알려 주세요"
+          variant="dark"
+          icon={<AlertTriangle aria-hidden size={36} />}
+          title="위험 신고"
+          subtitle="공사 · 장애물"
         />
-        <MenuRow
+        <BentoTile
           to="/onetouch"
           onClick={handleOnetouch}
-          icon={<PhoneCall aria-hidden size={28} />}
+          variant="accent"
+          icon={<PhoneCall aria-hidden size={36} />}
           title="원터치 복지콜"
-          subtitle="픽업·도착 위치를 골라 호출합니다"
+          subtitle="픽업 호출"
         />
-        <MenuRow
+        <BentoTile
           to="/settings"
-          icon={<SettingsIcon aria-hidden size={28} />}
+          variant="default"
+          colSpan={isAdmin ? 1 : 2}
+          icon={<SettingsIcon aria-hidden size={36} />}
           title="설정"
-          subtitle="내 정보 공개 범위를 설정합니다"
+          subtitle="공개 범위"
         />
         {isAdmin && (
-          <MenuRow to="/admin" icon={<ShieldAlert aria-hidden size={28} />} title="관리자" subtitle="가입 승인 · 현장 측량 · 입구/거리표지 보정" />
+          <BentoTile
+            to="/admin"
+            variant="default"
+            icon={<ShieldAlert aria-hidden size={36} />}
+            title="관리자"
+            subtitle="승인 · 측량"
+          />
         )}
       </nav>
     </AppShell>
   );
 }
 
-function MenuRow({
-  to, icon, title, subtitle, onClick,
-}: { to: string; icon: React.ReactNode; title: string; subtitle: string; onClick?: (e: React.MouseEvent) => void }) {
+function BentoTile({
+  to, icon, title, subtitle, onClick, variant = "default", colSpan = 1,
+}: {
+  to: string;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  onClick?: (e: React.MouseEvent) => void;
+  variant?: "default" | "primary" | "dark" | "accent";
+  colSpan?: 1 | 2;
+}) {
+  const variantClass =
+    variant === "primary" ? "bento-tile-primary"
+    : variant === "dark" ? "bento-tile-dark"
+    : variant === "accent" ? "bento-tile-accent"
+    : "";
+  const span = colSpan === 2 ? "col-span-2" : "";
   return (
-    <Link to={to} onClick={onClick} className="status-card flex items-center gap-4" aria-label={`${title}. ${subtitle}`}>
-      <div aria-hidden className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border-2 border-foreground bg-muted">
-        {icon}
+    <Link
+      to={to}
+      onClick={onClick}
+      className={`bento-tile ${variantClass} ${span}`}
+      aria-label={`${title}. ${subtitle}`}
+    >
+      <div className="flex items-start justify-between">
+        <div aria-hidden>{icon}</div>
+        <ArrowUpRight aria-hidden size={24} className="opacity-70" />
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-xl font-extrabold leading-tight">{title}</p>
-        <p className="mt-1 text-base text-muted-foreground">{subtitle}</p>
+      <div className="mt-3">
+        <p className="text-2xl font-black leading-none tracking-tight">{title}</p>
+        <p className="mt-2 text-base font-semibold opacity-80">{subtitle}</p>
       </div>
-      <ChevronRight aria-hidden size={28} />
     </Link>
   );
 }
