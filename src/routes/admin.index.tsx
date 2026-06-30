@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { generateAudioFn } from "@/lib/audio-generate";
 import { useQuery } from "@tanstack/react-query";
-import { ShieldAlert, ClipboardCheck, MapPin, Ruler, AlertTriangle, Footprints, Volume2 } from "lucide-react";
+import { ShieldAlert, ClipboardCheck, MapPin, Ruler, AlertTriangle, Footprints, Volume2, Database } from "lucide-react";
 import { AppShell } from "@/components/walk/AppShell";
 import { StatusCard } from "@/components/walk/StatusCard";
 import { useMe } from "@/hooks/useMe";
@@ -75,6 +75,8 @@ function AdminHome() {
           title="입구 좌표 보정" subtitle="국립극장 / 케이블카 방면 입구" />
         <AdminMenuRow to="/admin/milestones" icon={<Ruler size={28} />}
           title="200m 거리 표지 보정" subtitle="기준 입구 + 미터" />
+        <AdminMenuRow to="/admin/data-status" icon={<Database size={28} />}
+          title="레코딩 데이터 현황" subtitle="입구·마일스톤·랜드마크 확인 & 삭제" />
       </nav>
 
       <StatusCard tone={pending.length ? "warning" : "neutral"}
