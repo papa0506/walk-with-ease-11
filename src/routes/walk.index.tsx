@@ -113,6 +113,15 @@ function flipSide(side: string): string {
   return side; // FRONT, BOTH, ALL, NEAR 그대로
 }
 
+// 랜드마크 "약 10미터 앞" 안내용 헬퍼
+function hasTrailingConsonant(s: string): boolean {
+  const code = s.charCodeAt(s.length - 1) ?? 0;
+  return code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 !== 0;
+}
+const SIDE_TEXT: Record<string, string> = {
+  LEFT: "왼쪽", RIGHT: "오른쪽", FRONT: "정면", BOTH: "양쪽", ALL: "길 전체",
+};
+
 function sideLabel(s: string) {
   return s === "LEFT" ? "진행 방향 왼쪽"
        : s === "RIGHT" ? "진행 방향 오른쪽"
@@ -325,7 +334,7 @@ function WalkScreen() {
         if (now - lastLandmarkCheck.current > 10_000) {
           lastLandmarkCheck.current = now;
           landmarkFn({ data: {
-                lat: c.lat, lng: c.lng, radiusM: 65,
+                lat: c.lat, lng: c.lng, radiusM: 20,
                 entranceCode: entranceCode ?? undefined,
                 walkDir: walkDirRef.current,
               }})
@@ -341,12 +350,13 @@ function WalkScreen() {
                   walkDirRef.current,
                 );
                 const effectiveSide = flip ? flipSide(lm.side) : lm.side;
-                audio.speakLandmark(
-                  effectiveSide,
-                  lm.custom_name ?? lm.name,
-                  false,
-                  lm.announcement,
-                );
+                // "약 10미터 앞" 안내 문구 생성
+                const rawName = lm.custom_name ?? lm.name;
+                const particle = hasTrailingConsonant(rawName) ? "이" : "가";
+                const sideText = SIDE_TEXT[effectiveSide] ?? "근처";
+                const customAnn = lm.announcement
+                  ?? `약 10미터 앞, ${sideText}에 ${rawName}${particle} 있습니다.`;
+                audio.speakLandmark(effectiveSide, rawName, false, customAnn);
               });
             }).catch(() => {});
         }
@@ -484,7 +494,7 @@ function WalkScreen() {
   }
 
   const isApproved   = me?.status === "APPROVED";
-  const nextAnnounce = meterBucket * 200 + 200;
+
 
   return (
     <AppShell title="산책 중" back={{ to: "/" }}
@@ -550,14 +560,14 @@ function WalkScreen() {
       {/* 거리 + 음성 토글 */}
       <div className="flex items-center justify-between gap-3 rounded-2xl border-2 border-foreground bg-card px-4 py-3">
         <div>
-          <p className="text-lg font-extrabold">
+          <p className="text-base text-muted-foreground">
             {startEntranceRef.current
               ? (walkDir === "outbound"
-                  ? `${startEntranceRef.current.otherName} 방향 · ${Math.round(meters)}m`
-                  : `${startEntranceRef.current.name} 복귀 중 · ${Math.round(meters)}m`)
-              : `${Math.round(meters)} m`}
-            {" · 다음 안내 "}{nextAnnounce} m
+                  ? `${startEntranceRef.current.otherName} 방향`
+                  : `${startEntranceRef.current.name} 복귀 중`)
+              : "이동 중"}
           </p>
+          <p className="text-3xl font-extrabold">{Math.round(meters)} m</p>
           {coords && (
             <p className="text-sm text-muted-foreground">
               GPS 정확도 약 {Math.round(coords.acc)} m

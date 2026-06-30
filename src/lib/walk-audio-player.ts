@@ -1,14 +1,15 @@
 /**
  * walk-audio-player.ts
+ * 모든 오디오를 AudioContext (decodeAudioData) 로 재생 → iOS HTMLAudio 차단 문제 해결
  * 정적 파일 → 실패 시 on-demand TTS 자동 fallback
  */
 
 import { AUDIO_URL, AUDIO_TEXT } from "./audio-map";
 
 let _ctx: AudioContext | null = null;
-let _currentEl: HTMLAudioElement | null = null;
+let _currentSource: AudioBufferSourceNode | null = null;
 
-// 동시 안내 방지용 락
+// 동시 안내 방지용 큐
 let _speaking = false;
 const _queue: Array<() => Promise<void>> = [];
 
@@ -20,11 +21,10 @@ async function _processQueue() {
     await task();
   } finally {
     _speaking = false;
-    if (_queue.length > 0) setTimeout(_processQueue, 100);
+    if (_queue.length > 0) setTimeout(_processQueue, 80);
   }
 }
 
-/** 다음 안내를 큐에 추가. 이미 말하는 중이면 대기 */
 export function enqueue(task: () => Promise<void>): void {
   _queue.push(task);
   _processQueue();
@@ -37,34 +37,53 @@ export function initAudioContext(): AudioContext {
 }
 
 export function stopAudio(): void {
-  _queue.length = 0; // 큐도 비움
-  if (_currentEl) { _currentEl.pause(); _currentEl.currentTime = 0; _currentEl = null; }
+  _queue.length = 0;
+  if (_currentSource) {
+    try { _currentSource.stop(); } catch { /* already ended */ }
+    _currentSource = null;
+  }
 }
 
-function _playUrl(url: string): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    if (_currentEl) { _currentEl.pause(); _currentEl = null; }
-    const el = new Audio(url);
-    _currentEl = el;
-    el.onended  = () => { _currentEl = null; resolve(); };
-    el.onerror  = () => { _currentEl = null; reject(new Error(`load failed: ${url}`)); };
-    el.play().catch(reject);
+/**
+ * URL → AudioContext 디코딩 후 재생 (iOS 완전 호환)
+ * HTMLAudioElement 대신 AudioContext.decodeAudioData 사용
+ */
+async function _playUrl(url: string): Promise<void> {
+  const ctx = _ctx ?? initAudioContext();
+  if (ctx.state === "suspended") await ctx.resume();
+
+  const res = await fetch(url, { cache: "force-cache" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
+  const arrayBuf = await res.arrayBuffer();
+  const audioBuf = await ctx.decodeAudioData(arrayBuf);
+
+  // 이전 재생 중지
+  if (_currentSource) {
+    try { _currentSource.stop(); } catch { /* already ended */ }
+    _currentSource = null;
+  }
+
+  return new Promise<void>((resolve) => {
+    const src = ctx.createBufferSource();
+    src.buffer = audioBuf;
+    src.connect(ctx.destination);
+    src.onended = () => { _currentSource = null; resolve(); };
+    src.start();
+    _currentSource = src;
   });
 }
 
 /** 온디맨드 TTS (/api/tts) */
 export function playDynamic(text: string): Promise<void> {
-  const url = `/api/tts?text=${encodeURIComponent(text)}`;
-  return _playUrl(url);
+  return _playUrl(`/api/tts?text=${encodeURIComponent(text)}`);
 }
 
 /**
- * 정적 파일 재생. 파일 없거나 로드 실패 시 on-demand TTS로 자동 fallback.
+ * 정적 파일 재생. 실패 시 on-demand TTS fallback
  */
 export async function playStatic(key: string): Promise<void> {
   const url = AUDIO_URL[key];
   if (!url) {
-    // 키가 없으면 텍스트로 on-demand
     const text = AUDIO_TEXT[key];
     if (text) return playDynamic(text);
     throw new Error(`Unknown audio key: ${key}`);
@@ -72,13 +91,11 @@ export async function playStatic(key: string): Promise<void> {
   try {
     await _playUrl(url);
   } catch {
-    // 정적 파일 실패 (404 등) → on-demand TTS fallback
     const text = AUDIO_TEXT[key];
     if (text) {
-      console.warn(`[audio] static failed for "${key}", falling back to TTS`);
+      console.warn(`[audio] static failed "${key}", fallback to TTS`);
       await playDynamic(text);
     }
-    // fallback도 없으면 무음 통과
   }
 }
 
@@ -90,7 +107,7 @@ export async function playSegments(keys: string[]): Promise<void> {
   }
 }
 
-/** 비프음 (Web Audio API, 외부 파일 불필요) */
+/** 비프음 (Web Audio API) */
 export function playBeep(): Promise<void> {
   const ctx = _ctx ?? initAudioContext();
   return new Promise<void>(resolve => {
@@ -109,7 +126,7 @@ export function playBeep(): Promise<void> {
 
 /**
  * 랜드마크 안내: 방향 세그먼트 + 이름(on-demand) + 동사
- * 정적 세그먼트 실패 시 전체를 하나의 문장으로 on-demand fallback
+ * 실패 시 전체를 하나의 문장으로 on-demand fallback
  */
 export async function announceLandmark(
   side: string,
@@ -126,7 +143,6 @@ export async function announceLandmark(
   const sideText = AUDIO_TEXT[sideKey] ?? "근처에";
   const verbText = AUDIO_TEXT[verbKey] ?? "있습니다.";
 
-  // 정적 세그먼트 시도 후 실패하면 전체 문장 on-demand
   try {
     await playStatic(sideKey);
     await new Promise<void>(r => setTimeout(r, 60));
@@ -138,16 +154,19 @@ export async function announceLandmark(
   }
 }
 
-function hasTrailingConsonant(str: string): boolean {
+export function hasTrailingConsonant(str: string): boolean {
   const code = str[str.length - 1]?.charCodeAt(0) ?? 0;
   return code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 !== 0;
 }
 
 export async function preloadStaticAudio(keys: string[]): Promise<void> {
+  // AudioContext 방식에서는 fetch + cache 로 사전 로드
   for (const key of keys) {
     const url = AUDIO_URL[key];
     if (!url) continue;
-    try { await fetch(url, { cache: "force-cache" }); await new Promise<void>(r => setTimeout(r, 80)); }
-    catch { /* 사전 로드 실패 무시 */ }
+    try {
+      await fetch(url, { cache: "force-cache" });
+      await new Promise<void>(r => setTimeout(r, 80));
+    } catch { /* 사전 로드 실패 무시 */ }
   }
 }

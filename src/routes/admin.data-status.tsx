@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Database, MapPin, Ruler, Trash2 } from "lucide-react";
@@ -32,7 +33,7 @@ function DataStatus() {
   const { data: landmarks  = [], refetch: refLm } = useQuery({ queryKey: ["lm-status"], queryFn: () => listLmFn() });
   const { data: entrances  = [] }                  = useQuery({ queryKey: ["ent-status"], queryFn: () => listEntFn() });
 
-  const [deleting, setDeleting] = (require("react") as any).useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   if (me?.role !== "ADMIN") return (
     <AppShell title="접근 제한" back={{ to: "/admin" }}>

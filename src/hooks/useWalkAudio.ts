@@ -29,7 +29,11 @@ export function useWalkAudio() {
   const updateLive = useCallback((text: string) => {
     if (!liveRef.current) return;
     liveRef.current.textContent = "";
-    requestAnimationFrame(() => { if (liveRef.current) liveRef.current.textContent = text; });
+    requestAnimationFrame(() => {
+      if (liveRef.current) liveRef.current.textContent = text;
+      // 5초 후 지움 → VoiceOver가 이전 안내를 계속 읽지 않도록
+      setTimeout(() => { if (liveRef.current) liveRef.current.textContent = ""; }, 5000);
+    });
   }, []);
 
   /** 고정 key 또는 임의 텍스트 재생. 정적 실패 시 on-demand fallback */
