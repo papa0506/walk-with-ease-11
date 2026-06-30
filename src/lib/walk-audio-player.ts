@@ -1,109 +1,115 @@
 /**
  * walk-audio-player.ts
- *
- * 세 가지 재생 경로를 통합 제공:
- *  1. playStatic(key)         → public/audio/ 사전 생성 파일 재생 (무료)
- *  2. playSegments(keys[])    → 여러 세그먼트를 이어 재생 (방향+랜드마크명+동사)
- *  3. playDynamic(text)       → /api/tts 온디맨드 (브라우저 캐시 후 무료)
- *
- * 모든 함수는 playBeep()를 먼저 호출하지 않습니다.
- * 호출부에서 playBeep() → play*() 순서로 사용하세요.
+ * 정적 파일 → 실패 시 on-demand TTS 자동 fallback
  */
 
-import { AUDIO_URL } from "./audio-map";
+import { AUDIO_URL, AUDIO_TEXT } from "./audio-map";
 
-// ── 내부 상태 ──────────────────────────────────────────────
 let _ctx: AudioContext | null = null;
 let _currentEl: HTMLAudioElement | null = null;
 
-/** iOS AudioContext 잠금 해제 (사용자 제스처 핸들러 안에서 호출) */
+// 동시 안내 방지용 락
+let _speaking = false;
+const _queue: Array<() => Promise<void>> = [];
+
+async function _processQueue() {
+  if (_speaking || _queue.length === 0) return;
+  _speaking = true;
+  try {
+    const task = _queue.shift()!;
+    await task();
+  } finally {
+    _speaking = false;
+    if (_queue.length > 0) setTimeout(_processQueue, 100);
+  }
+}
+
+/** 다음 안내를 큐에 추가. 이미 말하는 중이면 대기 */
+export function enqueue(task: () => Promise<void>): void {
+  _queue.push(task);
+  _processQueue();
+}
+
 export function initAudioContext(): AudioContext {
-  if (!_ctx) {
-    _ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-  }
-  if (_ctx.state === "suspended") {
-    _ctx.resume();
-  }
+  if (!_ctx) _ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  if (_ctx.state === "suspended") _ctx.resume();
   return _ctx;
 }
 
-/** 현재 재생 중인 오디오 정지 */
 export function stopAudio(): void {
-  if (_currentEl) {
-    _currentEl.pause();
-    _currentEl.currentTime = 0;
-    _currentEl = null;
-  }
+  _queue.length = 0; // 큐도 비움
+  if (_currentEl) { _currentEl.pause(); _currentEl.currentTime = 0; _currentEl = null; }
 }
 
-// ── 내부: 단일 URL 재생 ───────────────────────────────────
 function _playUrl(url: string): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    stopAudio();
+    if (_currentEl) { _currentEl.pause(); _currentEl = null; }
     const el = new Audio(url);
     _currentEl = el;
-    el.onended = () => { _currentEl = null; resolve(); };
-    el.onerror = () => { _currentEl = null; reject(new Error(`Audio load failed: ${url}`)); };
+    el.onended  = () => { _currentEl = null; resolve(); };
+    el.onerror  = () => { _currentEl = null; reject(new Error(`load failed: ${url}`)); };
     el.play().catch(reject);
   });
 }
 
-// ── 1. 사전 생성 파일 재생 ────────────────────────────────
-export function playStatic(key: string): Promise<void> {
-  const url = AUDIO_URL[key];
-  if (!url) return Promise.reject(new Error(`Unknown audio key: ${key}`));
+/** 온디맨드 TTS (/api/tts) */
+export function playDynamic(text: string): Promise<void> {
+  const url = `/api/tts?text=${encodeURIComponent(text)}`;
   return _playUrl(url);
 }
 
-// ── 2. 세그먼트 조합 재생 ─────────────────────────────────
-/** 여러 키를 순서대로 재생. 세그먼트 사이 50ms 간격 */
-export async function playSegments(keys: string[]): Promise<void> {
-  for (let i = 0; i < keys.length; i++) {
-    await playStatic(keys[i]);
-    if (i < keys.length - 1) {
-      await new Promise<void>(r => setTimeout(r, 50));
+/**
+ * 정적 파일 재생. 파일 없거나 로드 실패 시 on-demand TTS로 자동 fallback.
+ */
+export async function playStatic(key: string): Promise<void> {
+  const url = AUDIO_URL[key];
+  if (!url) {
+    // 키가 없으면 텍스트로 on-demand
+    const text = AUDIO_TEXT[key];
+    if (text) return playDynamic(text);
+    throw new Error(`Unknown audio key: ${key}`);
+  }
+  try {
+    await _playUrl(url);
+  } catch {
+    // 정적 파일 실패 (404 등) → on-demand TTS fallback
+    const text = AUDIO_TEXT[key];
+    if (text) {
+      console.warn(`[audio] static failed for "${key}", falling back to TTS`);
+      await playDynamic(text);
     }
+    // fallback도 없으면 무음 통과
   }
 }
 
-// ── 3. 온디맨드 TTS (브라우저 캐시 활용) ─────────────────
-export function playDynamic(text: string, voice?: string): Promise<void> {
-  const url = `/api/tts?text=${encodeURIComponent(text)}${voice ? `&voice=${voice}` : ""}`;
-  return _playUrl(url);
+/** 세그먼트 순서 재생 */
+export async function playSegments(keys: string[]): Promise<void> {
+  for (let i = 0; i < keys.length; i++) {
+    await playStatic(keys[i]);
+    if (i < keys.length - 1) await new Promise<void>(r => setTimeout(r, 60));
+  }
 }
 
-// ── 띵동 비프음 (Web Audio API, 외부 파일 불필요) ─────────
+/** 비프음 (Web Audio API, 외부 파일 불필요) */
 export function playBeep(): Promise<void> {
   const ctx = _ctx ?? initAudioContext();
   return new Promise<void>(resolve => {
     const gain = ctx.createGain();
     gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0.4, ctx.currentTime);
-
-    const playTone = (freq: number, start: number, dur: number) => {
-      const osc = ctx.createOscillator();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      osc.connect(gain);
-      osc.start(ctx.currentTime + start);
-      osc.stop(ctx.currentTime + start + dur);
+    gain.gain.setValueAtTime(0.35, ctx.currentTime);
+    const tone = (freq: number, t: number, dur: number) => {
+      const o = ctx.createOscillator();
+      o.type = "sine"; o.frequency.value = freq; o.connect(gain);
+      o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + dur);
     };
-
-    playTone(880, 0,    0.18);   // 딩
-    playTone(660, 0.22, 0.22);   // 동
-
+    tone(880, 0, 0.18); tone(660, 0.22, 0.22);
     setTimeout(resolve, 480);
   });
 }
 
-// ── 랜드마크 조합: side + 이름(온디맨드) + 동사 ─────────
 /**
- * 예: announceLandmark("RIGHT", "화장실", false)
- *   → playStatic("side-right") → playDynamic("화장실이") → playStatic("v-here")
- *
- * @param side    DB의 side 값 ("LEFT"|"RIGHT"|"FRONT"|"BOTH"|"ALL"|"NEAR")
- * @param name    랜드마크 이름 (짧을수록 좋음)
- * @param caution 주의 필요 여부
+ * 랜드마크 안내: 방향 세그먼트 + 이름(on-demand) + 동사
+ * 정적 세그먼트 실패 시 전체를 하나의 문장으로 on-demand fallback
  */
 export async function announceLandmark(
   side: string,
@@ -114,45 +120,34 @@ export async function announceLandmark(
     LEFT: "side-left", RIGHT: "side-right", FRONT: "side-front",
     BOTH: "side-both", ALL: "side-all",
   };
-  const sideAudioKey = sideMap[side] ?? "side-near";
-  const verb = caution ? "v-caution" : "v-here";
-
-  // side 세그먼트
-  await playStatic(sideAudioKey);
-  await new Promise<void>(r => setTimeout(r, 50));
-
-  // 이름 (온디맨드 TTS, 브라우저 캐시 → 첫 번만 API 호출)
-  // 이(가) 조사 자동 부착: 받침 있으면 "이", 없으면 "가"
+  const sideKey  = sideMap[side] ?? "side-near";
+  const verbKey  = caution ? "v-caution" : "v-here";
   const particle = hasTrailingConsonant(name) ? "이" : "가";
-  await playDynamic(`${name}${particle}`);
-  await new Promise<void>(r => setTimeout(r, 50));
+  const sideText = AUDIO_TEXT[sideKey] ?? "근처에";
+  const verbText = AUDIO_TEXT[verbKey] ?? "있습니다.";
 
-  // 동사
-  await playStatic(verb);
+  // 정적 세그먼트 시도 후 실패하면 전체 문장 on-demand
+  try {
+    await playStatic(sideKey);
+    await new Promise<void>(r => setTimeout(r, 60));
+    await playDynamic(`${name}${particle}`);
+    await new Promise<void>(r => setTimeout(r, 60));
+    await playStatic(verbKey);
+  } catch {
+    await playDynamic(`${sideText} ${name}${particle} ${verbText}`);
+  }
 }
 
-/** 한글 받침 여부 판별 */
 function hasTrailingConsonant(str: string): boolean {
-  const last = str[str.length - 1];
-  const code = last?.charCodeAt(0);
-  if (!code || code < 0xac00 || code > 0xd7a3) return false;
-  return (code - 0xac00) % 28 !== 0;
+  const code = str[str.length - 1]?.charCodeAt(0) ?? 0;
+  return code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 !== 0;
 }
 
-// ── 사전 로드 (Service Worker 없이 fetch로 캐시 시드) ────
-/**
- * 앱 시작 시 정적 파일들을 브라우저 캐시에 올려두기.
- * 서버가 Cache-Control: immutable 을 반환하면 이후 재생이 즉각.
- */
 export async function preloadStaticAudio(keys: string[]): Promise<void> {
   for (const key of keys) {
     const url = AUDIO_URL[key];
     if (!url) continue;
-    try {
-      await fetch(url, { cache: "force-cache" });
-      await new Promise<void>(r => setTimeout(r, 80));
-    } catch {
-      // 사전 로드 실패해도 재생 시 시도하므로 무시
-    }
+    try { await fetch(url, { cache: "force-cache" }); await new Promise<void>(r => setTimeout(r, 80)); }
+    catch { /* 사전 로드 실패 무시 */ }
   }
 }

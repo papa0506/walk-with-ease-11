@@ -128,3 +128,8 @@ export function distKey(meters: number): string | null {
   if (meters % 200 !== 0 || meters < 200 || meters > 3400) return null;
   return `d${meters}`;
 }
+
+// ── key → 원문 텍스트 맵 (정적 파일 실패 시 on-demand fallback용) ─
+export const AUDIO_TEXT: Record<string, string> = Object.fromEntries(
+  ALL_AUDIO_ENTRIES.map(e => [e.key, e.text])
+);

@@ -488,33 +488,59 @@ export const adminUpdateHazard = createServerFn({ method: "POST" })
 // ---------- LANDMARKS ----------
 
 export const nearbyLandmarks = createServerFn({ method: "POST" })
-  .inputValidator((i: { lat: number; lng: number; radiusM?: number }) => i)
+  .inputValidator((i: {
+    lat: number; lng: number; radiusM?: number;
+    entranceCode?: string; walkDir?: string;
+  }) => i)
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // verified=true(검증됨)와 verified=false(관리자 현장 기록) 모두 포함
-    // 관리자가 현장에서 찍은 데이터를 즉시 안내에 활용
     const { data: rows, error } = await supabaseAdmin
       .from("landmarks")
-      .select("id,name,type,custom_name,announcement,direction_hint,side,route_meter,lat,lng,verified");
+      .select("id,name,type,custom_name,announcement,direction_hint,side,survey_direction,route_meter,lat,lng,verified");
     if (error) throw new Error(error.message);
-    const R = data.radiusM ?? 65;  // 35m → 65m: 접근 전 미리 안내
-    return (rows ?? []).filter((lm: { lat: number | null; lng: number | null }) => {
-      if (lm.lat == null || lm.lng == null) return false;
-      return haversine(data.lat, data.lng, lm.lat, lm.lng) <= R;
-    });
+    const R = data.radiusM ?? 65;
+
+    // 사용자 현재 이동 방향 계산
+    const { entranceCode, walkDir } = data;
+    let userDir: string | null = null;
+    if (entranceCode && walkDir) {
+      if (entranceCode === "NTH_THEATER"  && walkDir === "outbound")  userDir = "THEATER_TO_CABLECAR";
+      if (entranceCode === "NTH_THEATER"  && walkDir === "returning") userDir = "CABLECAR_TO_THEATER";
+      if (entranceCode === "NTH_CABLECAR" && walkDir === "outbound")  userDir = "CABLECAR_TO_THEATER";
+      if (entranceCode === "NTH_CABLECAR" && walkDir === "returning") userDir = "THEATER_TO_CABLECAR";
+    }
+
+    return (rows ?? [])
+      .filter((lm: any) => {
+        if (lm.lat == null || lm.lng == null) return false;
+        if (haversine(data.lat, data.lng, lm.lat, lm.lng) > R) return false;
+        // 방향이 반대인 랜드마크는 제외 (UNSPEC은 항상 포함)
+        if (userDir && lm.survey_direction && lm.survey_direction !== "UNSPEC") {
+          if (lm.survey_direction !== userDir) return false;
+        }
+        return true;
+      })
+      .map((lm: any) => ({
+        ...lm,
+        // 반대 방향으로 걷는 중이면 LEFT↔RIGHT 뒤집기 (필요한 경우)
+        // 이 필드는 클라이언트에서 직접 flip하도록 survey_direction을 전달
+      }));
   });
 
 // 산책 시작 시 마일스톤 좌표 로드 (위치 보정 앵커용)
-export const getWalkMilestones = createServerFn({ method: "GET" }).handler(async () => {
+export const getWalkMilestones = createServerFn({ method: "POST" })
+  .validator((d: unknown) => d as { entranceCode?: string })
+  .handler(async ({ data: reqData }) => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin
+  let q = supabaseAdmin
     .from("milestones")
-    .select("id,meter,lat,lng,accuracy,survey_direction,basis_entrance(code)")
+    .select("id,meter,lat,lng,accuracy,survey_direction,basis_entrance!inner(code)")
     .not("lat", "is", null)
     .not("lng", "is", null)
     .order("meter");
+  const { data: rows, error } = await q;
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return rows ?? [];
 });
 
 // ---------- LOCATION SHARING ----------

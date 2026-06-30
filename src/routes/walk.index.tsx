@@ -92,6 +92,27 @@ function hav(la1: number, lo1: number, la2: number, lo2: number) {
     Math.cos(r(la1)) * Math.cos(r(la2)) * Math.sin(r(lo2 - lo1) / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
 }
+/** 랜드마크 기록 방향과 현재 진행 방향이 반대이면 LEFT/RIGHT 뒤집기 */
+function shouldFlipSide(
+  lmSurveyDir: string,
+  entranceCode: string,
+  walkDir: "outbound" | "returning",
+): boolean {
+  if (!lmSurveyDir || lmSurveyDir === "UNSPEC") return false;
+  const userDir =
+    entranceCode === "NTH_THEATER"  && walkDir === "outbound"  ? "THEATER_TO_CABLECAR" :
+    entranceCode === "NTH_THEATER"  && walkDir === "returning" ? "CABLECAR_TO_THEATER" :
+    entranceCode === "NTH_CABLECAR" && walkDir === "outbound"  ? "CABLECAR_TO_THEATER" :
+    entranceCode === "NTH_CABLECAR" && walkDir === "returning" ? "THEATER_TO_CABLECAR" : null;
+  return userDir != null && lmSurveyDir !== userDir;
+}
+
+function flipSide(side: string): string {
+  if (side === "LEFT")  return "RIGHT";
+  if (side === "RIGHT") return "LEFT";
+  return side; // FRONT, BOTH, ALL, NEAR 그대로
+}
+
 function sideLabel(s: string) {
   return s === "LEFT" ? "진행 방향 왼쪽"
        : s === "RIGHT" ? "진행 방향 오른쪽"
@@ -303,14 +324,25 @@ function WalkScreen() {
         // 랜드마크 폴링 (10초, 반경 65m — 접근 전 미리 안내)
         if (now - lastLandmarkCheck.current > 10_000) {
           lastLandmarkCheck.current = now;
-          landmarkFn({ data: { lat: c.lat, lng: c.lng, radiusM: 65 } })
+          landmarkFn({ data: {
+                lat: c.lat, lng: c.lng, radiusM: 65,
+                entranceCode: entranceCode ?? undefined,
+                walkDir: walkDirRef.current,
+              }})
             .then(rows => {
               (rows as LandmarkLite[]).forEach(lm => {
                 if (announcedLandmarks.current.has(lm.id)) return;
                 announcedLandmarks.current.add(lm.id);
                 setTimeout(() => announcedLandmarks.current.delete(lm.id), 30_000);
+                // 진행 방향이 기록 방향과 반대이면 LEFT↔RIGHT 뒤집기
+                const flip = shouldFlipSide(
+                  (lm as any).survey_direction ?? "UNSPEC",
+                  entranceCode ?? "",
+                  walkDirRef.current,
+                );
+                const effectiveSide = flip ? flipSide(lm.side) : lm.side;
                 audio.speakLandmark(
-                  lm.side,
+                  effectiveSide,
                   lm.custom_name ?? lm.name,
                   false,
                   lm.announcement,
