@@ -16,7 +16,7 @@ const PRELOAD_PRIORITY = [
 ];
 
 export function useWalkAudio() {
-  const [voiceOn, setVoiceOn] = useState(true);
+  const voiceOn = true; // 시각장애인 앱 기본값: 항상 켜짐
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const liveRef = useRef<HTMLDivElement>(null);
 
@@ -99,7 +99,7 @@ export function useWalkAudio() {
   }, []);
 
   return {
-    voiceOn, setVoiceOn,
+    voiceOn,
     audioUnlocked, unlockAudio,
     speak, speakByKey, speakLandmark, speakDistance,
     preload, playBeep, stopAudio, liveRef,

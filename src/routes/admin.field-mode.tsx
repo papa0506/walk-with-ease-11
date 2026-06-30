@@ -58,7 +58,8 @@ function FieldMode() {
   const [busy, setBusy] = useState(false);
   const [precisionMode, setPrecisionMode] = useState(false);
   const watchId = useRef<number | null>(null);
-  const gpsAvg = useGpsAverage(15); // 정밀 모드: 15개 샘플 평균
+  const gpsAvg   = useGpsAverage(15); // 정밀 모드: 마일스톤 15개 샘플 평균
+  const gpsAvgLm = useGpsAverage(10); // 지형지물 정밀 GPS: 10개 샘플 평균
   const prevAvgStatus = useRef<string>("idle");
 
   // 정밀 모드 수집 완료 시 음성 자동 안내
@@ -135,7 +136,11 @@ function FieldMode() {
   }
 
   async function saveLandmark() {
-    if (!pos) { setMsg("위치를 가져오는 중입니다."); return; }
+    // 정밀 GPS 결과 우선, 없으면 즉시 위치 사용
+    const lmPos = gpsAvgLm.result
+      ? { lat: gpsAvgLm.result.lat, lng: gpsAvgLm.result.lng, acc: gpsAvgLm.result.accuracy }
+      : pos;
+    if (!lmPos) { setMsg("위치를 가져오는 중입니다."); return; }
     const def = LTYPES.find((t) => t.key === ltype)!;
     const name = ltype === "CUSTOM" ? (customName.trim() || "지형지물") : def.label;
     const sideLabel = lside === "LEFT" ? "진행 방향 왼쪽" : lside === "RIGHT" ? "진행 방향 오른쪽"
@@ -146,12 +151,17 @@ function FieldMode() {
       await saveL({ data: {
         name, type: ltype, custom_name: ltype === "CUSTOM" ? customName.trim() || null : null,
         announcement, side: lside, survey_direction: dir,
-        lat: pos.lat, lng: pos.lng, accuracy: pos.acc,
+        lat: lmPos.lat, lng: lmPos.lng, accuracy: lmPos.acc,
         route_meter: meter,
       }});
-      setMsg(`지형지물 저장됨: ${name} (${sideLabel})`);
+      const accNote = gpsAvgLm.result
+        ? ` (정밀 ${gpsAvgLm.result.sampleCount}개 평균, 오차 ${gpsAvgLm.result.accuracy.toFixed(1)}m)`
+        : ` (즉시 저장, 오차 ${Math.round(lmPos.acc)}m)`;
+      speakText(`${name} 저장됨.${accNote}`);
+      setMsg(`지형지물 저장됨: ${name} (${sideLabel})${accNote}`);
       setStep("MAIN");
       setCustomName("");
+      gpsAvgLm.stop();
     } catch (e: unknown) { setMsg(e instanceof Error ? e.message : "저장 실패"); }
     finally { setBusy(false); }
   }
@@ -162,7 +172,7 @@ function FieldMode() {
         bottomAction={
           <div className="grid grid-cols-2 gap-3">
             <button className="btn-secondary" onClick={() => setStep("MAIN")}>취소</button>
-            <button className="btn-primary" onClick={saveLandmark} disabled={busy}>
+            <button className="btn-primary" onClick={saveLandmark} disabled={busy || (gpsAvgLm.status === "collecting" && !pos)}>
               <Save aria-hidden size={22} /> {busy ? "저장 중..." : "저장 후 실측 복귀"}
             </button>
           </div>
@@ -171,6 +181,31 @@ function FieldMode() {
           eyebrow={`${meter}m 부근`}
           title="현재 진행 방향 기준으로 저장됩니다"
           description={dir === "THEATER_TO_CABLECAR" ? "국립극장 → 케이블카 방면" : "케이블카 → 국립극장 방면"} />
+
+        {/* 지형지물 GPS 정밀 측량 상태 */}
+        {gpsAvgLm.status === "collecting" && (
+          <div className="status-card space-y-2" role="status" aria-live="polite">
+            <p className="text-lg font-extrabold">GPS 정밀 측량 중… {gpsAvgLm.progress} / 10</p>
+            <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${Math.round(gpsAvgLm.progress / 10 * 100)}%` }} />
+            </div>
+            <p className="text-sm text-muted-foreground">이 자리에서 잠시 멈춰 주세요. 종류·방향을 먼저 선택해 두셔도 됩니다.</p>
+          </div>
+        )}
+        {gpsAvgLm.status === "done" && gpsAvgLm.result && (
+          <div className="status-card flex items-center justify-between gap-3">
+            <div>
+              <p className="text-lg font-extrabold text-green-600">GPS 측량 완료</p>
+              <p className="text-sm text-muted-foreground">
+                추정 오차 약 {gpsAvgLm.result.accuracy.toFixed(1)}m · {gpsAvgLm.result.sampleCount}개 평균
+              </p>
+            </div>
+            <button type="button" className="btn-secondary px-3 py-2 text-sm" onClick={() => gpsAvgLm.start()}>
+              <RefreshCw size={16} aria-hidden /> 재측정
+            </button>
+          </div>
+        )}
 
         <fieldset>
           <legend className="mb-2 text-lg font-extrabold">종류</legend>
@@ -315,7 +350,7 @@ function FieldMode() {
       </StatusCard>
 
       <div className="grid grid-cols-2 gap-3">
-        <button className="status-card min-h-[80px] text-left" onClick={() => setStep("LANDMARK")}>
+        <button className="status-card min-h-[80px] text-left" onClick={() => { setStep("LANDMARK"); gpsAvgLm.start(); }}>
           <Tag aria-hidden size={28} />
           <p className="mt-1 text-lg font-extrabold">지형지물 기록</p>
         </button>

@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Mic, MicOff, Navigation, AlertTriangle, PhoneCall, Square,
+  Mic, Navigation, AlertTriangle, PhoneCall, Square,
   Users, UserCheck, ChevronDown, ChevronUp, X,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
@@ -540,8 +540,7 @@ function WalkScreen() {
           style={{ fontSize: "1.25rem", padding: "1.2rem" }}
           onClick={() => {
             audio.unlockAudio();
-            audio.setVoiceOn(true);
-            
+
             // 입구명 포함 시작 안내
             const entranceName = startEntranceRef.current?.name ?? "";
             setTimeout(() => {
@@ -574,17 +573,12 @@ function WalkScreen() {
             </p>
           )}
         </div>
-        {/* 음성 토글 */}
-        <button type="button" className="btn-secondary min-h-12 px-3"
-          onClick={() => {
-            if (!audio.audioUnlocked) { audio.unlockAudio(); }
-            audio.setVoiceOn(!audio.voiceOn);
-          }}
-          aria-label={audio.voiceOn ? "음성 안내 끄기" : "음성 안내 켜기"}
-          aria-pressed={audio.voiceOn}>
-          {audio.voiceOn ? <Mic aria-hidden size={22} /> : <MicOff aria-hidden size={22} />}
-          {audio.voiceOn ? "음성 켜짐" : "음성 꺼짐"}
-        </button>
+        {/* 음성 잠금 해제 표시 (iOS에서 AudioContext 활성화 여부) */}
+        {audio.audioUnlocked && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Mic aria-hidden size={16} /> 음성 안내 활성
+          </div>
+        )}
       </div>
 
       {/* 위험 신고 */}
