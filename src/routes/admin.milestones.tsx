@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Ruler, CheckCircle, Circle, RefreshCw, Trash2, AlertTriangle } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/walk/AppShell";
 import { StatusCard } from "@/components/walk/StatusCard";
@@ -47,6 +48,7 @@ function Milestones() {
   const [msg,   setMsg]   = useState<string | null>(null);
   const [busy,  setBusy]  = useState(false);
 
+  const navigate   = useNavigate();
   const saveFn     = useServerFn(adminSaveMilestone);
   const listFn     = useServerFn(adminListMilestones);
   const deleteFn   = useServerFn(adminDeleteMilestone);
@@ -116,28 +118,35 @@ function Milestones() {
       title="200m 거리 표지 보정"
       back={{ to: "/admin" }}
       bottomAction={
-        isDone ? (
-          <div className="grid grid-cols-2 gap-3">
-            <button className="btn-secondary" onClick={startCollecting} disabled={busy}>
-              <RefreshCw aria-hidden size={20} /> 재측정
+        <div className="flex flex-col gap-2">
+          {isDone ? (
+            <div className="grid grid-cols-2 gap-3">
+              <button className="btn-secondary" onClick={startCollecting} disabled={busy}>
+                <RefreshCw aria-hidden size={20} /> 재측정
+              </button>
+              <button className="btn-primary" onClick={saveWithResult} disabled={busy}>
+                <Ruler aria-hidden size={22} />
+                {busy ? "저장 중..." : `${meter}m 저장`}
+              </button>
+            </div>
+          ) : (
+            <button
+              className="btn-primary"
+              onClick={startCollecting}
+              disabled={isCollecting}
+            >
+              <Ruler aria-hidden size={26} />
+              {isCollecting
+                ? `샘플 수집 중 ${gps.progress}/${TARGET_SAMPLES}…`
+                : alreadySaved ? `${meter}m 재측정 시작` : `${meter}m 정밀 측정 시작`}
             </button>
-            <button className="btn-primary" onClick={saveWithResult} disabled={busy}>
-              <Ruler aria-hidden size={22} />
-              {busy ? "저장 중..." : `${meter}m 저장`}
-            </button>
-          </div>
-        ) : (
-          <button
-            className="btn-primary"
-            onClick={startCollecting}
-            disabled={isCollecting}
-          >
-            <Ruler aria-hidden size={26} />
-            {isCollecting
-              ? `샘플 수집 중 ${gps.progress}/${TARGET_SAMPLES}…`
-              : alreadySaved ? `${meter}m 재측정 시작` : `${meter}m 정밀 측정 시작`}
+          )}
+          <button className="btn-secondary flex items-center justify-center gap-2"
+            onClick={() => navigate({ to: "/admin" })}
+            aria-label="측정 완료 후 관리자 홈으로 이동">
+            <CheckCircle aria-hidden size={22} /> 측정 완료 — 관리자 홈으로
           </button>
-        )
+        </div>
       }
     >
       <StatusCard tone="info" icon={<Ruler aria-hidden size={28} />}

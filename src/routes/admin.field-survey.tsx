@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { MapPin, Save, RefreshCw, Trash2, CheckCircle, Circle } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/walk/AppShell";
 import { StatusCard } from "@/components/walk/StatusCard";
@@ -33,6 +34,7 @@ const SURVEY_OPTIONS: { key: SurveyDir; label: string }[] = [
 
 function FieldSurvey() {
   const gps    = useGpsAverage(12); // 12개 샘플 (더 정밀하게)
+  const navigate   = useNavigate();
   const saveFn     = useServerFn(adminSaveLandmark);
   const listFn     = useServerFn(adminListLandmarks);
   const deleteFn   = useServerFn(adminDeleteLandmark);
@@ -75,9 +77,16 @@ function FieldSurvey() {
   return (
     <AppShell title="현장 측량" back={{ to: "/admin" }}
       bottomAction={
-        <button className="btn-primary" onClick={save} disabled={busy || !pos}>
-          <Save aria-hidden size={26} /> {busy ? "저장 중…" : "현장 후보 저장"}
-        </button>
+        <div className="flex flex-col gap-2">
+          <button className="btn-primary" onClick={save} disabled={busy || !pos}>
+            <Save aria-hidden size={26} /> {busy ? "저장 중…" : "현장 후보 저장"}
+          </button>
+          <button className="btn-secondary flex items-center justify-center gap-2"
+            onClick={() => navigate({ to: "/admin" })}
+            aria-label="기록 완료 후 관리자 홈으로 이동">
+            <CheckCircle aria-hidden size={22} /> 기록 완료 — 관리자 홈으로
+          </button>
+        </div>
       }
     >
       <StatusCard tone="info" icon={<MapPin aria-hidden size={28} />}

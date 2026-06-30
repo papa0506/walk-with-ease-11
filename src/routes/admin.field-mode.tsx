@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Footprints, MapPin, Tag, AlertTriangle, Save, ChevronLeft, ChevronRight } from "lucide-react";
+import { Footprints, MapPin, Tag, AlertTriangle, Save, ChevronLeft, ChevronRight, CheckCircle, Ruler, RefreshCw } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/walk/AppShell";
 import { StatusCard } from "@/components/walk/StatusCard";
@@ -218,16 +218,23 @@ function FieldMode() {
   return (
     <AppShell title="현장 실측 모드" back={{ to: "/admin" }}
       bottomAction={
-        <button className="btn-primary"
-          onClick={saveMilestone}
-          disabled={busy || (!precisionMode && !pos) || (precisionMode && gpsAvg.status === "collecting")}>
-          <Save aria-hidden size={26} />
-          {precisionMode
-            ? gpsAvg.status === "collecting"
-              ? `수집 중 ${gpsAvg.progress}/15…`
-              : `${meter}m 정밀 측정 시작`
-            : busy ? "저장 중..." : `현재 위치를 ${meter}m 표지로 기록`}
-        </button>
+        <div className="flex flex-col gap-2">
+          <button className="btn-primary"
+            onClick={saveMilestone}
+            disabled={busy || (!precisionMode && !pos) || (precisionMode && gpsAvg.status === "collecting")}>
+            <Save aria-hidden size={26} />
+            {precisionMode
+              ? gpsAvg.status === "collecting"
+                ? `수집 중 ${gpsAvg.progress}/15…`
+                : `${meter}m 정밀 측정 시작`
+              : busy ? "저장 중..." : `현재 위치를 ${meter}m 표지로 기록`}
+          </button>
+          <button className="btn-secondary flex items-center justify-center gap-2"
+            onClick={() => navigate({ to: "/admin" })}
+            aria-label="실측 완료 후 관리자 홈으로 이동">
+            <CheckCircle aria-hidden size={22} /> 실측 완료 — 관리자 홈으로
+          </button>
+        </div>
       }>
       <fieldset>
         <legend className="mb-2 text-lg font-extrabold">기준 방향</legend>
