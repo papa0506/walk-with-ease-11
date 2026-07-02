@@ -208,6 +208,7 @@ function WalkScreen() {
   // ── GPS 추적 ─────────────────────────────────────────────
   const startGps = useCallback(() => {
     if (!("geolocation" in navigator)) { setPermission("denied"); return; }
+    if (watchId.current != null) { navigator.geolocation.clearWatch(watchId.current); watchId.current = null; }
     setPermission("requested");
 
     watchId.current = navigator.geolocation.watchPosition(
@@ -387,7 +388,7 @@ function WalkScreen() {
   useEffect(() => {
     startGps();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [me]);
 
   // ── 마일스톤 로드 (출발 입구 기준으로 필터링됨) ───────────
   useEffect(() => {
