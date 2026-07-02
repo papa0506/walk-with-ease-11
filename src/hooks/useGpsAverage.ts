@@ -54,8 +54,10 @@ function compute(buf: Reading[]): GpsAvgResult | null {
     varLng += w * (r.lng - lng) ** 2;
   }
   const spreadM = Math.sqrt((varLat + varLng) / wSum) * 111_000; // 도→미터 근사
+  // 가중평균의 표준오차: acc가 이미 미터 단위이므로 추가 단위 변환 없음
+  // (이전 코드는 111,000을 잘못 곱해 오차가 45만 미터처럼 표시되는 버그가 있었음)
   const estimatedAcc = Math.max(
-    Math.sqrt(1 / wSum) * 111_000,
+    Math.sqrt(1 / wSum),
     spreadM
   );
 

@@ -306,7 +306,7 @@ function FieldMode() {
           <p className="text-lg font-extrabold">정밀 측정 모드</p>
           <p className="text-sm text-muted-foreground">
             {precisionMode
-              ? "15개 샘플 평균 저장 — 반경 10m 걸으며 수집"
+              ? "15개 샘플 평균 저장 — 제자리에 서서 수집"
               : "즉시 저장 (빠른 연속 기록용)"}
           </p>
         </div>
@@ -330,7 +330,7 @@ function FieldMode() {
             <div className="h-full rounded-full bg-primary transition-all"
               style={{ width: `${Math.round(gpsAvg.progress / 15 * 100)}%` }} />
           </div>
-          <p className="text-sm text-muted-foreground">반경 10m 이내를 천천히 걸어주세요.</p>
+          <p className="text-sm text-muted-foreground">그 자리에 잠시 서 계세요.</p>
         </div>
       )}
       {precisionMode && gpsAvg.status === "done" && gpsAvg.result && (

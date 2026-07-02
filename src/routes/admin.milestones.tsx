@@ -171,7 +171,7 @@ function Milestones() {
             />
           </div>
           <p className="text-sm text-muted-foreground">
-            이 지점 반경 10m 이내를 천천히 걸어주세요. 자동으로 수집합니다.
+            그 자리에 잠시 서 계세요. 자동으로 수집합니다.
           </p>
           {(() => { const p = gps.partialResult(); return p ? (
             <p className="text-sm">
