@@ -9,6 +9,7 @@ import { z } from "zod";
 import { AppShell } from "@/components/walk/AppShell";
 import { useMe } from "@/hooks/useMe";
 import { useWalkAudio } from "@/hooks/useWalkAudio";
+import { requestWakeLock } from "@/lib/wake-lock";
 import {
   endWalk, nearbyHazards, hazardFeedback,
   nearbyLandmarks, upsertMyLocation,
@@ -36,6 +37,8 @@ type LandmarkLite = {
   id: string; name: string; type: string | null; custom_name: string | null;
   announcement: string | null; direction_hint: string | null;
   side: string; route_meter: number | null;
+  lat: number | null; lng: number | null;
+  survey_direction?: string | null;
 };
 type RouteWalker = {
   userId: string; name: string;
@@ -43,33 +46,30 @@ type RouteWalker = {
   updatedSecsAgo: number;
 };
 
-// ── GPS 설정 ─────────────────────────────────────────────
-const GPS_MAX_ACC  = 50;   // 정확도 50m 초과 신호 무시
-const GPS_MIN_DIST = 2;    // 2m 이상 이동 시 거리 누적
-const MILESTONE_SNAP_M = 30; // 마일스톤 30m 이내 진입 시 위치 보정
+// ── GPS / 안내 거리 설정 ─────────────────────────────────
+const GPS_MAX_ACC        = 50;  // 정확도 50m 초과 신호 무시
+const MILESTONE_SNAP_M   = 30;  // 마일스톤 지점 30m 이내 진입 시 통과 안내 + 위치 보정
+const LANDMARK_ANNOUNCE_M = 20; // 지형지물: 약 10~20m 전 미리 안내
+const HAZARD_ANNOUNCE_M  = 35;  // 위험 지점: 약 35m 전 음성 경고
 
 // 추적 알림 임계값(m)
 const TRACK_THRESHOLDS = [500, 200, 100, 50, 20];
 
 // ── Kalman 필터 (GPS 위치 보정) ───────────────────────────
-// 단순 지수평활 대신 Kalman 필터 사용 → 오차 누적 최소화
 class KalmanGPS {
   private lat = 0; private lng = 0;
-  private P = 1e-3; // 초기 위치 불확실성 (도² 단위)
+  private P = 1e-3;
   private initialized = false;
 
   update(newLat: number, newLng: number, accuracyM: number): { lat: number; lng: number } {
-    // 측정 노이즈: GPS 정확도를 도 단위로 변환 (1도 ≈ 111km)
     const R = Math.pow(accuracyM / 111_000, 2);
     if (!this.initialized) {
       this.lat = newLat; this.lng = newLng;
       this.P = R; this.initialized = true;
       return { lat: this.lat, lng: this.lng };
     }
-    // 프로세스 노이즈 (이동에 의한 위치 변화)
     const Q = 1e-8;
     this.P += Q;
-    // Kalman 게인
     const K = this.P / (this.P + R);
     this.lat += K * (newLat - this.lat);
     this.lng += K * (newLng - this.lng);
@@ -77,7 +77,6 @@ class KalmanGPS {
     return { lat: this.lat, lng: this.lng };
   }
 
-  // 마일스톤 좌표로 절대 위치 보정 (앵커링)
   anchor(lat: number, lng: number, accuracyM: number) {
     const R = Math.pow(accuracyM / 111_000, 2);
     this.lat = lat; this.lng = lng;
@@ -113,7 +112,6 @@ function flipSide(side: string): string {
   return side; // FRONT, BOTH, ALL, NEAR 그대로
 }
 
-// 랜드마크 "약 10미터 앞" 안내용 헬퍼
 function hasTrailingConsonant(s: string): boolean {
   const code = s.charCodeAt(s.length - 1) ?? 0;
   return code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 !== 0;
@@ -130,17 +128,6 @@ function sideLabel(s: string) {
        : s === "ALL"   ? "길 전체" : "근처";
 }
 function secsAgo(s: number) { return s < 60 ? `${s}초 전` : `${Math.round(s / 60)}분 전`; }
-
-// ── Wake Lock (화면 꺼짐 방지) ──────────────────────────
-async function requestWakeLock(): Promise<WakeLockSentinel | null> {
-  try {
-    if ("wakeLock" in navigator) {
-      return await (navigator as unknown as { wakeLock: { request: (t: string) => Promise<WakeLockSentinel> } })
-        .wakeLock.request("screen");
-    }
-  } catch { /* 지원 안 하는 기기 무시 */ }
-  return null;
-}
 
 // 남산 북측순환로 입구 fallback 좌표 (DB에 없을 때 사용)
 const ENTRANCE_FALLBACK: Record<string, { lat: number; lng: number; name: string }> = {
@@ -166,7 +153,7 @@ function WalkScreen() {
 
   const [permission,   setPermission]   = useState<"idle"|"requested"|"granted"|"denied">("idle");
   const [coords,       setCoords]       = useState<Coords | null>(null);
-  const [meters,       setMeters]       = useState(0);
+  const [lastMilestone, setLastMilestone] = useState<number | null>(null);
   const [hazards,      setHazards]      = useState<HazardLite[]>([]);
   const [routeWalkers, setRouteWalkers] = useState<RouteWalker[]>([]);
   const [showWalkers,  setShowWalkers]  = useState(false);
@@ -175,14 +162,16 @@ function WalkScreen() {
 
   const watchId           = useRef<number | null>(null);
   const kalman            = useRef(new KalmanGPS());
-  const lastPos           = useRef<Coords | null>(null);
   const milestonesRef     = useRef<{ id: string; meter: number; lat: number; lng: number; accuracy: number | null }[]>([]);
-  const snapAnnouncedRef  = useRef(new Set<string>());  // 마일스톤 앵커 중복 방지
+  const landmarksRef      = useRef<LandmarkLite[]>([]);
+  const hazardsRef        = useRef<HazardLite[]>([]);
+  const snapAnnouncedRef  = useRef(new Set<string>());  // 마일스톤 통과 안내 중복 방지
   const lastHazardCheck   = useRef(0);
   const lastLandmarkCheck = useRef(0);
   const lastLocPush       = useRef(0);
   const lastWalkersCheck  = useRef(0);
   const announcedLandmarks = useRef(new Set<string>());
+  const announcedHazards   = useRef(new Set<string>());
   const announcedNearby    = useRef(new Set<string>());
   const trackedThresholds  = useRef(new Set<number>());
   const lastTrackedDist    = useRef<number | null>(null);
@@ -195,25 +184,6 @@ function WalkScreen() {
   const startEntranceRef            = useRef<{ lat: number; lng: number; name: string; otherName: string } | null>(null);
   const distHistory                 = useRef<number[]>([]);  // 최근 8개 distFromStart 이력
   const dirAnnounced                = useRef(false);         // 방향 전환 중복 방지
-
-
-
-  // ── 200m 안내 (마일스톤 앵커가 없는 구간 백업용) ───────────
-  // 마일스톤 GPS 좌표 근처에서는 앵커링이 자동 안내하므로 중복 방지
-  const meterBucket = Math.floor(meters / 200);
-  const prevBucket  = useRef(-1);
-  useEffect(() => {
-    if (!audio.voiceOn || meters < 200) return;
-    if (meterBucket === prevBucket.current) return;
-    prevBucket.current = meterBucket;
-    const cur = meterBucket * 200;
-    // 마일스톤 근처(±30m)에서는 앵커링이 이미 안내했으므로 스킵
-    const nearMs = milestonesRef.current.some(ms => Math.abs(ms.meter - cur) <= 30);
-    if (!nearMs) {
-      audio.speakDistance(cur);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meterBucket]);
 
   // ── 추적 거리 알림 ────────────────────────────────────────
   useEffect(() => {
@@ -249,48 +219,82 @@ function WalkScreen() {
         };
         if (raw.acc > GPS_MAX_ACC) return;
 
-        // Kalman 필터로 위치 평활화 (지수평활 대비 오차 누적 최소화)
+        // Kalman 필터로 위치 평활화
         const filtered = kalman.current.update(raw.lat, raw.lng, raw.acc);
         const c: Coords = { ...raw, lat: filtered.lat, lng: filtered.lng };
         setCoords(c);
 
-        // 마일스톤 앵커링: 기록된 GPS 좌표 30m 이내 진입 시 위치 보정
+        // ── 마일스톤 통과 안내: 실측 지점 30m 이내 진입 시 ──────
+        // (출발 입구 기준으로 서버에서 걸러진 마일스톤만 사용)
         for (const ms of milestonesRef.current) {
           const distToMs = hav(c.lat, c.lng, ms.lat, ms.lng);
           if (distToMs <= MILESTONE_SNAP_M && !snapAnnouncedRef.current.has(ms.id)) {
             snapAnnouncedRef.current.add(ms.id);
-            // Kalman 필터 앵커 업데이트 (절대 위치 보정)
             kalman.current.anchor(ms.lat, ms.lng, ms.accuracy ?? 10);
-            // 누적 거리도 마일스톤 값으로 보정
-            setMeters(ms.meter);
+            setLastMilestone(ms.meter);
             if (audio.voiceOn) {
-              audio.speakDistance(ms.meter);
+              if (walkDirRef.current === "returning") {
+                // 복귀 중에는 "다음 안내는 +200미터" 문구가 틀리므로 짧은 안내 사용
+                audio.speak(`${ms.meter}미터 지점입니다.`);
+              } else {
+                audio.speakDistance(ms.meter);
+              }
             }
-            // 재진입 허용: 30m 벗어나면 다시 알릴 수 있게
-            setTimeout(() => snapAnnouncedRef.current.delete(ms.id), 60_000);
+            // 재진입 허용: 2분 후 다시 알릴 수 있게
+            setTimeout(() => snapAnnouncedRef.current.delete(ms.id), 120_000);
             break;
           }
         }
 
-        // ── 거리 누적 + 방향 감지 ────────────────────────────
+        // ── 지형지물: 10~20m 전 미리 안내 (매 GPS 갱신마다 검사) ──
+        for (const lm of landmarksRef.current) {
+          if (lm.lat == null || lm.lng == null) continue;
+          if (announcedLandmarks.current.has(lm.id)) continue;
+          const d = hav(c.lat, c.lng, lm.lat, lm.lng);
+          if (d > LANDMARK_ANNOUNCE_M) continue;
+          announcedLandmarks.current.add(lm.id);
+          setTimeout(() => announcedLandmarks.current.delete(lm.id), 120_000);
+          const flip = shouldFlipSide(
+            lm.survey_direction ?? "UNSPEC",
+            entranceCode ?? "",
+            walkDirRef.current,
+          );
+          const effectiveSide = flip ? flipSide(lm.side) : lm.side;
+          const rawName  = lm.custom_name ?? lm.name;
+          const particle = hasTrailingConsonant(rawName) ? "이" : "가";
+          const sideText = SIDE_TEXT[effectiveSide] ?? "근처";
+          const distText = d >= 15 ? "약 20미터" : "약 10미터";
+          const text = lm.announcement
+            ? `${distText} 앞. ${lm.announcement}`
+            : `${distText} 앞, ${sideText}에 ${rawName}${particle} 있습니다.`;
+          audio.speakLandmark(effectiveSide, rawName, false, text);
+        }
+
+        // ── 위험 지점: 접근 시 음성 경고 ─────────────────────
+        for (const h of hazardsRef.current) {
+          if (h.lat == null || h.lng == null) continue;
+          if (announcedHazards.current.has(h.id)) continue;
+          const d = hav(c.lat, c.lng, h.lat, h.lng);
+          if (d > HAZARD_ANNOUNCE_M) continue;
+          announcedHazards.current.add(h.id);
+          setTimeout(() => announcedHazards.current.delete(h.id), 180_000);
+          const distText = Math.max(10, Math.round(d / 5) * 5);
+          audio.speak(`주의하세요. 약 ${distText}미터 앞, ${sideLabel(h.side)}, ${h.label ?? "위험 지점"} 제보가 있습니다.`);
+        }
+
+        // ── 방향 감지 (내부용 — 화면에 걸은 거리는 표시하지 않음) ──
         const entrance = startEntranceRef.current;
         if (entrance) {
-          // 입구 기준: distFromStart = 이 지점에서 출발 입구까지 haversine
           const distFromStart = hav(c.lat, c.lng, entrance.lat, entrance.lng);
-          setMeters(Math.round(distFromStart));
-
-          // 최근 이력에 추가 (최대 8개)
           distHistory.current.push(distFromStart);
           if (distHistory.current.length > 8) distHistory.current.shift();
 
-          // 방향 판단: 이력 6개 이상일 때 첫 번째 vs 마지막 비교
           if (distHistory.current.length >= 6) {
             const oldest = distHistory.current[0];
             const newest = distHistory.current[distHistory.current.length - 1];
             const wasOutbound = walkDirRef.current === "outbound";
 
             if (wasOutbound && newest < oldest - 18) {
-              // 방향 전환: 출발지 쪽으로 돌아오는 중
               walkDirRef.current = "returning";
               setWalkDir("returning");
               if (!dirAnnounced.current) {
@@ -301,7 +305,6 @@ function WalkScreen() {
                 setTimeout(() => { dirAnnounced.current = false; }, 30_000);
               }
             } else if (!wasOutbound && newest > oldest + 18) {
-              // 다시 앞으로 출발
               walkDirRef.current = "outbound";
               setWalkDir("outbound");
               if (!dirAnnounced.current) {
@@ -313,52 +316,27 @@ function WalkScreen() {
               }
             }
           }
-        } else {
-          // 입구 정보 없을 때: 기존 누적 방식
-          if (lastPos.current) {
-            const d = hav(lastPos.current.lat, lastPos.current.lng, c.lat, c.lng);
-            if (d >= GPS_MIN_DIST) { setMeters(m => m + d); lastPos.current = c; }
-          } else { lastPos.current = c; }
         }
 
         const now = Date.now();
 
-        // 위험 폴링 (20초)
+        // 위험 폴링 (20초, 반경 120m — 접근 검사용 캐시)
         if (now - lastHazardCheck.current > 20_000) {
           lastHazardCheck.current = now;
-          nearbyFn({ data: { lat: c.lat, lng: c.lng, radiusM: 100 } })
-            .then(r => setHazards(r as HazardLite[])).catch(() => {});
+          nearbyFn({ data: { lat: c.lat, lng: c.lng, radiusM: 120 } })
+            .then(r => {
+              const rows = r as HazardLite[];
+              setHazards(rows);
+              hazardsRef.current = rows;
+            }).catch(() => {});
         }
 
-        // 랜드마크 폴링 (10초, 반경 65m — 접근 전 미리 안내)
-        if (now - lastLandmarkCheck.current > 10_000) {
+        // 랜드마크 폴링 (20초, 반경 150m — 접근 검사용 캐시)
+        if (now - lastLandmarkCheck.current > 20_000) {
           lastLandmarkCheck.current = now;
-          landmarkFn({ data: {
-                lat: c.lat, lng: c.lng, radiusM: 20,
-                entranceCode: entranceCode ?? undefined,
-                walkDir: walkDirRef.current,
-              }})
-            .then(rows => {
-              (rows as LandmarkLite[]).forEach(lm => {
-                if (announcedLandmarks.current.has(lm.id)) return;
-                announcedLandmarks.current.add(lm.id);
-                setTimeout(() => announcedLandmarks.current.delete(lm.id), 30_000);
-                // 진행 방향이 기록 방향과 반대이면 LEFT↔RIGHT 뒤집기
-                const flip = shouldFlipSide(
-                  (lm as any).survey_direction ?? "UNSPEC",
-                  entranceCode ?? "",
-                  walkDirRef.current,
-                );
-                const effectiveSide = flip ? flipSide(lm.side) : lm.side;
-                // "약 10미터 앞" 안내 문구 생성
-                const rawName = lm.custom_name ?? lm.name;
-                const particle = hasTrailingConsonant(rawName) ? "이" : "가";
-                const sideText = SIDE_TEXT[effectiveSide] ?? "근처";
-                const customAnn = lm.announcement
-                  ?? `약 10미터 앞, ${sideText}에 ${rawName}${particle} 있습니다.`;
-                audio.speakLandmark(effectiveSide, rawName, false, customAnn);
-              });
-            }).catch(() => {});
+          landmarkFn({ data: { lat: c.lat, lng: c.lng, radiusM: 150 } })
+            .then(rows => { landmarksRef.current = rows as LandmarkLite[]; })
+            .catch(() => {});
         }
 
         // 내 위치 업로드 (15초)
@@ -378,14 +356,12 @@ function WalkScreen() {
               const list = rows as RouteWalker[];
               setRouteWalkers(list);
 
-              // 추적 중 거리 업데이트
               const tracked = trackedUserRef.current;
               if (tracked) {
                 const found = list.find(w => w.userId === tracked.userId);
                 setTrackedDist(found?.distance ?? null);
               }
 
-              // 150m 신규 진입 알림
               list.filter(w => w.distance != null && w.distance <= 150).forEach(w => {
                 if (announcedNearby.current.has(w.userId)) return;
                 announcedNearby.current.add(w.userId);
@@ -400,28 +376,28 @@ function WalkScreen() {
       () => setPermission("denied"),
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 15_000 },
     );
-  }, [me, walkId, audio, nearbyFn, landmarkFn, upsertLocFn, routeWalkFn]);
+  }, [me, walkId, audio, entranceCode, nearbyFn, landmarkFn, upsertLocFn, routeWalkFn]);
 
   function stopGps() {
     if (watchId.current != null) { navigator.geolocation.clearWatch(watchId.current); watchId.current = null; }
   }
   useEffect(() => () => stopGps(), []);
 
-  // ── GPS 자동 시작 (산책 화면 진입 시 자동으로 위치 권한 요청) ──────
+  // ── GPS 자동 시작 ────────────────────────────────────────
   useEffect(() => {
     startGps();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── 마일스톤 로드 (위치 보정 앵커 데이터) ───────────────
+  // ── 마일스톤 로드 (출발 입구 기준으로 필터링됨) ───────────
   useEffect(() => {
-    getMilestonesFn().then(rows => {
+    getMilestonesFn({ data: { entranceCode: entranceCode ?? null } }).then(rows => {
       milestonesRef.current = (rows as any[])
         .filter(m => m.lat != null && m.lng != null)
         .map(m => ({ id: m.id, meter: m.meter, lat: m.lat, lng: m.lng, accuracy: m.accuracy }));
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [entranceCode]);
 
   // ── 입구 좌표 로드 → 방향 감지 기준점 설정 ─────────────────
   useEffect(() => {
@@ -439,7 +415,6 @@ function WalkScreen() {
       if (lat != null && lng != null) {
         startEntranceRef.current = { lat, lng, name, otherName };
         // 사전 음성 캐시 로딩 (비동기 백그라운드)
-        // 모든 거리/방향 파일 사전 로드
         const distKeys = Array.from({length: 17}, (_, i) => `d${(i+1)*200}`);
         audio.preload([
           ...distKeys,
@@ -453,7 +428,6 @@ function WalkScreen() {
         }
       }
     }).catch(() => {
-      // fallback 좌표 사용
       const fb = ENTRANCE_FALLBACK[entranceCode];
       const otherFb = Object.entries(ENTRANCE_FALLBACK).find(([k]) => k !== entranceCode)?.[1];
       if (fb) {
@@ -512,6 +486,7 @@ function WalkScreen() {
             onClick={async () => {
               stopGps();
               wakeLock.current?.release().catch(() => {});
+              if (audio.voiceOn) audio.speakByKey("sys-end");
               if (walkId) { try { await endFn({ data: { walkId } }); } catch { /**/ } }
               navigate({ to: "/" });
             }}
@@ -540,11 +515,7 @@ function WalkScreen() {
           style={{ fontSize: "1.25rem", padding: "1.2rem" }}
           onClick={() => {
             audio.unlockAudio();
-
-            // 입구명 포함 시작 안내
-            const entranceName = startEntranceRef.current?.name ?? "";
             setTimeout(() => {
-              // static 파일 우선: 입구 코드가 있으면 맞는 키, 없으면 sys-start
               const startAudioKey = entranceCode === "NTH_THEATER"  ? "ent-start-theater"
                                   : entranceCode === "NTH_CABLECAR" ? "ent-start-cablecar"
                                   : "sys-start";
@@ -556,7 +527,7 @@ function WalkScreen() {
         </button>
       )}
 
-      {/* 거리 + 음성 토글 */}
+      {/* 통과 지점 + 상태 */}
       <div className="flex items-center justify-between gap-3 rounded-2xl border-2 border-foreground bg-card px-4 py-3">
         <div>
           <p className="text-base text-muted-foreground">
@@ -566,14 +537,15 @@ function WalkScreen() {
                   : `${startEntranceRef.current.name} 복귀 중`)
               : "이동 중"}
           </p>
-          <p className="text-3xl font-extrabold">{Math.round(meters)} m</p>
+          <p className="text-3xl font-extrabold">
+            {lastMilestone != null ? `${lastMilestone}m 지점 통과` : "안내 지점 대기 중"}
+          </p>
           {coords && (
             <p className="text-sm text-muted-foreground">
               GPS 정확도 약 {Math.round(coords.acc)} m
             </p>
           )}
         </div>
-        {/* 음성 잠금 해제 표시 (iOS에서 AudioContext 활성화 여부) */}
         {audio.audioUnlocked && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Mic aria-hidden size={16} /> 음성 안내 활성
@@ -655,12 +627,14 @@ function WalkScreen() {
                 <p className="text-xl font-extrabold">{h.label ?? h.type}</p>
                 <p className="text-base">{sideLabel(h.side)}에 제보가 있습니다.</p>
                 {h.description && <p className="text-sm">{h.description}</p>}
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <button className="btn-secondary min-h-12"
-                    onClick={() => feedbackFn({ data: { id: h.id, vote: "STILL_THERE" } })}>아직 있어요</button>
-                  <button className="btn-secondary min-h-12"
-                    onClick={() => feedbackFn({ data: { id: h.id, vote: "GONE" } })}>없어졌어요</button>
-                </div>
+                {me && (
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button className="btn-secondary min-h-12"
+                      onClick={() => feedbackFn({ data: { id: h.id, vote: "STILL_THERE" } })}>아직 있어요</button>
+                    <button className="btn-secondary min-h-12"
+                      onClick={() => feedbackFn({ data: { id: h.id, vote: "GONE" } })}>없어졌어요</button>
+                  </div>
+                )}
               </article>
             );
           })}

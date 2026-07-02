@@ -6,6 +6,7 @@ import { AppShell } from "@/components/walk/AppShell";
 import { StatusCard } from "@/components/walk/StatusCard";
 import { adminSaveMilestone, adminSaveLandmark } from "@/lib/namsan.functions";
 import { useGpsAverage } from "@/hooks/useGpsAverage";
+import { requestWakeLock } from "@/lib/wake-lock";
 
 export const Route = createFileRoute("/admin/field-mode")({
   head: () => ({ meta: [{ title: "현장 실측 모드 · 관리자" }] }),
@@ -89,6 +90,22 @@ function FieldMode() {
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 },
     );
     return () => { if (watchId.current != null) navigator.geolocation.clearWatch(watchId.current); };
+  }, []);
+
+  // 실측 중 화면 꺼짐 방지 (화면이 꺼지면 GPS 수집이 끊김)
+  useEffect(() => {
+    let lock: WakeLockSentinel | null = null;
+    requestWakeLock().then(l => { lock = l; });
+    const reacquire = () => {
+      if (document.visibilityState === "visible") {
+        requestWakeLock().then(l => { lock = l; });
+      }
+    };
+    document.addEventListener("visibilitychange", reacquire);
+    return () => {
+      document.removeEventListener("visibilitychange", reacquire);
+      lock?.release().catch(() => {});
+    };
   }, []);
 
   const basisCode = dir === "THEATER_TO_CABLECAR" ? "NTH_THEATER" : "NTH_CABLECAR";

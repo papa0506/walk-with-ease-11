@@ -422,6 +422,7 @@ export const nearbyHazards = createServerFn({ method: "POST" })
 export const hazardFeedback = createServerFn({ method: "POST" })
   .inputValidator((i: { id: string; vote: "STILL_THERE" | "GONE" }) => i)
   .handler(async ({ data }) => {
+    await requireUser(); // 익명 사용자가 만료 연장·설명 변경을 못 하도록 로그인 필수
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     if (data.vote === "STILL_THERE") {
       // Extend by 1 hour from now, but never shorten
@@ -431,10 +432,16 @@ export const hazardFeedback = createServerFn({ method: "POST" })
       const next = new Date(Math.max(cur, ext)).toISOString();
       await supabaseAdmin.from("hazards").update({ expires_at: next }).eq("id", data.id);
     } else {
-      // "없어졌어요" — mark needs review (keep active until admin confirms)
-      await supabaseAdmin.from("hazards").update({
-        description: "[사용자: 없어졌어요 신고됨]",
-      }).eq("id", data.id);
+      // "없어졌어요" — 검토 필요 표시 (관리자 확인 전까지 활성 유지, 기존 설명 보존)
+      const NOTE = "[사용자: 없어졌어요 신고됨]";
+      const { data: h } = await supabaseAdmin
+        .from("hazards").select("description").eq("id", data.id).maybeSingle();
+      const cur = h?.description ?? "";
+      if (!cur.includes(NOTE)) {
+        await supabaseAdmin.from("hazards").update({
+          description: cur ? `${cur} ${NOTE}` : NOTE,
+        }).eq("id", data.id);
+      }
     }
     return { ok: true };
   });
@@ -529,19 +536,22 @@ export const nearbyLandmarks = createServerFn({ method: "POST" })
 
 // 산책 시작 시 마일스톤 좌표 로드 (위치 보정 앵커용)
 export const getWalkMilestones = createServerFn({ method: "POST" })
-  .validator((d: unknown) => d as { entranceCode?: string })
-  .handler(async ({ data: reqData }) => {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  let q = supabaseAdmin
-    .from("milestones")
-    .select("id,meter,lat,lng,accuracy,survey_direction,basis_entrance!inner(code)")
-    .not("lat", "is", null)
-    .not("lng", "is", null)
-    .order("meter");
-  const { data: rows, error } = await q;
-  if (error) throw new Error(error.message);
-  return rows ?? [];
-});
+  .inputValidator((d: { entranceCode?: string | null }) => d)
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // 출발 입구 기준 마일스톤만 사용 — 기준 입구가 다른 지점을 섞으면
+    // 반대편 기준 미터 값으로 잘못된 지점 안내가 나가므로 반드시 필터링한다.
+    if (!data?.entranceCode) return [];
+    const { data: rows, error } = await supabaseAdmin
+      .from("milestones")
+      .select("id,meter,lat,lng,accuracy,survey_direction,basis_entrance!inner(code)")
+      .eq("basis_entrance.code", data.entranceCode)
+      .not("lat", "is", null)
+      .not("lng", "is", null)
+      .order("meter");
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
 
 // ---------- LOCATION SHARING ----------
 
@@ -654,6 +664,7 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number) {
 export const adminDeleteMilestone = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
+    await requireAdmin();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("milestones").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
@@ -663,6 +674,7 @@ export const adminDeleteMilestone = createServerFn({ method: "POST" })
 // 마일스톤 전체 삭제
 export const adminDeleteAllMilestones = createServerFn({ method: "POST" })
   .handler(async () => {
+    await requireAdmin();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("milestones").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     if (error) throw new Error(error.message);
@@ -673,6 +685,7 @@ export const adminDeleteAllMilestones = createServerFn({ method: "POST" })
 export const adminDeleteLandmark = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
+    await requireAdmin();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("landmarks").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
@@ -681,6 +694,7 @@ export const adminDeleteLandmark = createServerFn({ method: "POST" })
 
 // 랜드마크 전체 목록 (관리자용)
 export const adminListLandmarks = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAdmin();
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
     .from("landmarks")

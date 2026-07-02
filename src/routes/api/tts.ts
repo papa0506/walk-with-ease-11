@@ -8,6 +8,21 @@ import { createFileRoute } from "@tanstack/react-router";
 const DEFAULT_VOICE = "EXAVITQu4vr4xnSDxMaL"; // Sarah (다국어 v2에서 한국어 양호)
 const MODEL_ID = "eleven_multilingual_v2";
 
+// ── 간단한 IP당 요청 제한 (분당 30회) — TTS 크레딧 남용 방지 ──
+const RATE_LIMIT_PER_MIN = 30;
+const _hits = new Map<string, { count: number; reset: number }>();
+function rateLimited(ip: string): boolean {
+  const now = Date.now();
+  if (_hits.size > 5000) _hits.clear(); // 메모리 보호
+  const h = _hits.get(ip);
+  if (!h || now > h.reset) {
+    _hits.set(ip, { count: 1, reset: now + 60_000 });
+    return false;
+  }
+  h.count += 1;
+  return h.count > RATE_LIMIT_PER_MIN;
+}
+
 async function synth(text: string, voiceId: string): Promise<Response> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
@@ -60,10 +75,12 @@ export const Route = createFileRoute("/api/tts")({
       GET: async ({ request }) => {
         const url = new URL(request.url);
         const text = url.searchParams.get("text")?.trim();
-        const voice = url.searchParams.get("voice")?.trim() || DEFAULT_VOICE;
         if (!text) return new Response("missing text", { status: 400 });
         if (text.length > 500) return new Response("text too long", { status: 400 });
-        return synth(text, voice);
+        const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+        if (rateLimited(ip)) return new Response("too many requests", { status: 429 });
+        // voice 파라미터는 남용 방지를 위해 고정 음성만 사용
+        return synth(text, DEFAULT_VOICE);
       },
     },
   },

@@ -24,6 +24,7 @@ import { Route as AdminHazardsRouteImport } from './routes/admin.hazards'
 import { Route as AdminFieldSurveyRouteImport } from './routes/admin.field-survey'
 import { Route as AdminFieldModeRouteImport } from './routes/admin.field-mode'
 import { Route as AdminEntrancesRouteImport } from './routes/admin.entrances'
+import { Route as AdminDataStatusRouteImport } from './routes/admin.data-status'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -100,6 +101,11 @@ const AdminEntrancesRoute = AdminEntrancesRouteImport.update({
   path: '/admin/entrances',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminDataStatusRoute = AdminDataStatusRouteImport.update({
+  id: '/admin/data-status',
+  path: '/admin/data-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/onetouch': typeof OnetouchRoute
   '/report-hazard': typeof ReportHazardRoute
   '/settings': typeof SettingsRoute
+  '/admin/data-status': typeof AdminDataStatusRoute
   '/admin/entrances': typeof AdminEntrancesRoute
   '/admin/field-mode': typeof AdminFieldModeRoute
   '/admin/field-survey': typeof AdminFieldSurveyRoute
@@ -124,6 +131,7 @@ export interface FileRoutesByTo {
   '/onetouch': typeof OnetouchRoute
   '/report-hazard': typeof ReportHazardRoute
   '/settings': typeof SettingsRoute
+  '/admin/data-status': typeof AdminDataStatusRoute
   '/admin/entrances': typeof AdminEntrancesRoute
   '/admin/field-mode': typeof AdminFieldModeRoute
   '/admin/field-survey': typeof AdminFieldSurveyRoute
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/onetouch': typeof OnetouchRoute
   '/report-hazard': typeof ReportHazardRoute
   '/settings': typeof SettingsRoute
+  '/admin/data-status': typeof AdminDataStatusRoute
   '/admin/entrances': typeof AdminEntrancesRoute
   '/admin/field-mode': typeof AdminFieldModeRoute
   '/admin/field-survey': typeof AdminFieldSurveyRoute
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/onetouch'
     | '/report-hazard'
     | '/settings'
+    | '/admin/data-status'
     | '/admin/entrances'
     | '/admin/field-mode'
     | '/admin/field-survey'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/onetouch'
     | '/report-hazard'
     | '/settings'
+    | '/admin/data-status'
     | '/admin/entrances'
     | '/admin/field-mode'
     | '/admin/field-survey'
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | '/onetouch'
     | '/report-hazard'
     | '/settings'
+    | '/admin/data-status'
     | '/admin/entrances'
     | '/admin/field-mode'
     | '/admin/field-survey'
@@ -213,6 +225,7 @@ export interface RootRouteChildren {
   OnetouchRoute: typeof OnetouchRoute
   ReportHazardRoute: typeof ReportHazardRoute
   SettingsRoute: typeof SettingsRoute
+  AdminDataStatusRoute: typeof AdminDataStatusRoute
   AdminEntrancesRoute: typeof AdminEntrancesRoute
   AdminFieldModeRoute: typeof AdminFieldModeRoute
   AdminFieldSurveyRoute: typeof AdminFieldSurveyRoute
@@ -331,6 +344,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminEntrancesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/data-status': {
+      id: '/admin/data-status'
+      path: '/admin/data-status'
+      fullPath: '/admin/data-status'
+      preLoaderRoute: typeof AdminDataStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -350,6 +370,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnetouchRoute: OnetouchRoute,
   ReportHazardRoute: ReportHazardRoute,
   SettingsRoute: SettingsRoute,
+  AdminDataStatusRoute: AdminDataStatusRoute,
   AdminEntrancesRoute: AdminEntrancesRoute,
   AdminFieldModeRoute: AdminFieldModeRoute,
   AdminFieldSurveyRoute: AdminFieldSurveyRoute,
