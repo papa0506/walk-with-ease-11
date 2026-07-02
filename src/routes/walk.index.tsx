@@ -208,6 +208,7 @@ function WalkScreen() {
   // ── GPS 추적 ─────────────────────────────────────────────
   const startGps = useCallback(() => {
     if (!("geolocation" in navigator)) { setPermission("denied"); return; }
+    if (watchId.current != null) { navigator.geolocation.clearWatch(watchId.current); watchId.current = null; }
     setPermission("requested");
 
     watchId.current = navigator.geolocation.watchPosition(
