@@ -19,9 +19,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as WalkStartRouteImport } from './routes/walk.start'
 import { Route as AuthPendingRouteImport } from './routes/auth.pending'
 import { Route as ApiTtsRouteImport } from './routes/api/tts'
-import { Route as AdminMilestonesRouteImport } from './routes/admin.milestones'
 import { Route as AdminHazardsRouteImport } from './routes/admin.hazards'
-import { Route as AdminFieldSurveyRouteImport } from './routes/admin.field-survey'
 import { Route as AdminFieldModeRouteImport } from './routes/admin.field-mode'
 import { Route as AdminEntrancesRouteImport } from './routes/admin.entrances'
 import { Route as AdminDataStatusRouteImport } from './routes/admin.data-status'
@@ -76,19 +74,9 @@ const ApiTtsRoute = ApiTtsRouteImport.update({
   path: '/api/tts',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminMilestonesRoute = AdminMilestonesRouteImport.update({
-  id: '/admin/milestones',
-  path: '/admin/milestones',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminHazardsRoute = AdminHazardsRouteImport.update({
   id: '/admin/hazards',
   path: '/admin/hazards',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminFieldSurveyRoute = AdminFieldSurveyRouteImport.update({
-  id: '/admin/field-survey',
-  path: '/admin/field-survey',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminFieldModeRoute = AdminFieldModeRouteImport.update({
@@ -116,9 +104,7 @@ export interface FileRoutesByFullPath {
   '/admin/data-status': typeof AdminDataStatusRoute
   '/admin/entrances': typeof AdminEntrancesRoute
   '/admin/field-mode': typeof AdminFieldModeRoute
-  '/admin/field-survey': typeof AdminFieldSurveyRoute
   '/admin/hazards': typeof AdminHazardsRoute
-  '/admin/milestones': typeof AdminMilestonesRoute
   '/api/tts': typeof ApiTtsRoute
   '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
@@ -134,9 +120,7 @@ export interface FileRoutesByTo {
   '/admin/data-status': typeof AdminDataStatusRoute
   '/admin/entrances': typeof AdminEntrancesRoute
   '/admin/field-mode': typeof AdminFieldModeRoute
-  '/admin/field-survey': typeof AdminFieldSurveyRoute
   '/admin/hazards': typeof AdminHazardsRoute
-  '/admin/milestones': typeof AdminMilestonesRoute
   '/api/tts': typeof ApiTtsRoute
   '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
@@ -153,9 +137,7 @@ export interface FileRoutesById {
   '/admin/data-status': typeof AdminDataStatusRoute
   '/admin/entrances': typeof AdminEntrancesRoute
   '/admin/field-mode': typeof AdminFieldModeRoute
-  '/admin/field-survey': typeof AdminFieldSurveyRoute
   '/admin/hazards': typeof AdminHazardsRoute
-  '/admin/milestones': typeof AdminMilestonesRoute
   '/api/tts': typeof ApiTtsRoute
   '/auth/pending': typeof AuthPendingRoute
   '/walk/start': typeof WalkStartRoute
@@ -173,9 +155,7 @@ export interface FileRouteTypes {
     | '/admin/data-status'
     | '/admin/entrances'
     | '/admin/field-mode'
-    | '/admin/field-survey'
     | '/admin/hazards'
-    | '/admin/milestones'
     | '/api/tts'
     | '/auth/pending'
     | '/walk/start'
@@ -191,9 +171,7 @@ export interface FileRouteTypes {
     | '/admin/data-status'
     | '/admin/entrances'
     | '/admin/field-mode'
-    | '/admin/field-survey'
     | '/admin/hazards'
-    | '/admin/milestones'
     | '/api/tts'
     | '/auth/pending'
     | '/walk/start'
@@ -209,9 +187,7 @@ export interface FileRouteTypes {
     | '/admin/data-status'
     | '/admin/entrances'
     | '/admin/field-mode'
-    | '/admin/field-survey'
     | '/admin/hazards'
-    | '/admin/milestones'
     | '/api/tts'
     | '/auth/pending'
     | '/walk/start'
@@ -228,9 +204,7 @@ export interface RootRouteChildren {
   AdminDataStatusRoute: typeof AdminDataStatusRoute
   AdminEntrancesRoute: typeof AdminEntrancesRoute
   AdminFieldModeRoute: typeof AdminFieldModeRoute
-  AdminFieldSurveyRoute: typeof AdminFieldSurveyRoute
   AdminHazardsRoute: typeof AdminHazardsRoute
-  AdminMilestonesRoute: typeof AdminMilestonesRoute
   ApiTtsRoute: typeof ApiTtsRoute
   WalkStartRoute: typeof WalkStartRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -309,25 +283,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTtsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/milestones': {
-      id: '/admin/milestones'
-      path: '/admin/milestones'
-      fullPath: '/admin/milestones'
-      preLoaderRoute: typeof AdminMilestonesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/admin/hazards': {
       id: '/admin/hazards'
       path: '/admin/hazards'
       fullPath: '/admin/hazards'
       preLoaderRoute: typeof AdminHazardsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/field-survey': {
-      id: '/admin/field-survey'
-      path: '/admin/field-survey'
-      fullPath: '/admin/field-survey'
-      preLoaderRoute: typeof AdminFieldSurveyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/field-mode': {
@@ -373,9 +333,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminDataStatusRoute: AdminDataStatusRoute,
   AdminEntrancesRoute: AdminEntrancesRoute,
   AdminFieldModeRoute: AdminFieldModeRoute,
-  AdminFieldSurveyRoute: AdminFieldSurveyRoute,
   AdminHazardsRoute: AdminHazardsRoute,
-  AdminMilestonesRoute: AdminMilestonesRoute,
   ApiTtsRoute: ApiTtsRoute,
   WalkStartRoute: WalkStartRoute,
   AdminIndexRoute: AdminIndexRoute,
@@ -384,3 +342,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
