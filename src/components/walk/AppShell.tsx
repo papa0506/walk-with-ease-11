@@ -12,10 +12,10 @@ interface Props {
 
 export function AppShell({ title, back, children, bottomAction, topRight }: Props) {
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-background">
+    <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col bg-background">
 
 
-      <header className="px-5 pb-3 pt-5">
+      <header className="px-5 pb-3 pt-5 sm:px-8">
         {back ? (
           <a
             href={back.to}
@@ -31,7 +31,7 @@ export function AppShell({ title, back, children, bottomAction, topRight }: Prop
         </div>
       </header>
 
-      <main id="main" className="flex-1 space-y-4 px-5 pb-40 pt-2">
+      <main id="main" className="flex-1 space-y-4 px-5 pb-40 pt-2 sm:px-8">
         {children}
       </main>
 
@@ -39,7 +39,7 @@ export function AppShell({ title, back, children, bottomAction, topRight }: Prop
         <div
           role="region"
           aria-label="주요 동작"
-          className="fixed inset-x-0 bottom-0 mx-auto max-w-md border-t-2 border-foreground bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+          className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-2xl border-t-2 border-foreground bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-8"
         >
           {bottomAction}
         </div>
