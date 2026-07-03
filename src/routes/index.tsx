@@ -65,11 +65,6 @@ function Home() {
     <AppShell
       title={me ? `${me.name}님,\n안전한 산책` : "남산\n산책 동반자"}
       topRight={topRight}
-      bottomAction={
-        <Link to="/walk/start" className="btn-primary" aria-label="산책로 기본 안내 시작">
-          <Footprints aria-hidden="true" size={28} /> 산책 시작하기
-        </Link>
-      }
     >
       <nav aria-label="주요 메뉴" className="grid grid-cols-2 gap-4">
         <BentoTile
