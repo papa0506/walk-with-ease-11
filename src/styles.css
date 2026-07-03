@@ -1,6 +1,12 @@
 @import "tailwindcss" source(none);
-@source "../src";
 @import "tw-animate-css";
+@import "@fontsource/black-han-sans/400.css";
+@import "@fontsource/noto-sans-kr/400.css";
+@import "@fontsource/noto-sans-kr/500.css";
+@import "@fontsource/noto-sans-kr/700.css";
+@import "@fontsource/noto-sans-kr/800.css";
+@import "@fontsource/noto-sans-kr/900.css";
+@source "../src";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -42,8 +48,8 @@
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
 
-  --font-display: "Archivo Black", "Pretendard", system-ui, sans-serif;
-  --font-body: "Hind", "Pretendard", system-ui, sans-serif;
+  --font-display: "Black Han Sans", "Noto Sans KR", system-ui, sans-serif;
+  --font-body: "Noto Sans KR", system-ui, sans-serif;
 
   --shadow-card: 0 4px 0 0 var(--foreground);
   --shadow-lift: 0 10px 28px -8px color-mix(in oklab, var(--foreground) 35%, transparent);
@@ -109,8 +115,8 @@
   /* 큰 기본 폰트, 시각장애 사용자 우선 */
   body { font-size: 17px; line-height: 1.55; }
 
-  h1 { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.02em; }
-  h2 { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.015em; }
+  h1 { font-family: var(--font-display); font-weight: 800; letter-spacing: 0; }
+  h2 { font-family: var(--font-display); font-weight: 700; letter-spacing: 0; }
   h3 { font-family: var(--font-display); font-weight: 700; }
 
   /* 강한 포커스 링 — 키보드/스위치 컨트롤 사용자 */

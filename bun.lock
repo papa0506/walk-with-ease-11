@@ -5,6 +5,8 @@
     "": {
       "name": "tanstack_start_ts",
       "dependencies": {
+        "@fontsource/black-han-sans": "^5.2.8",
+        "@fontsource/noto-sans-kr": "^5.2.9",
         "@hookform/resolvers": "^5.2.2",
         "@radix-ui/react-accordion": "^1.2.12",
         "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -214,6 +216,10 @@
     "@floating-ui/react-dom": ["@floating-ui/react-dom@2.1.8", "", { "dependencies": { "@floating-ui/dom": "^1.7.6" }, "peerDependencies": { "react": ">=16.8.0", "react-dom": ">=16.8.0" } }, "sha512-cC52bHwM/n/CxS87FH0yWdngEZrjdtLW/qVruo68qg+prK7ZQ4YGdut2GyDVpoGeAYe/h899rVeOVm6Oi40k2A=="],
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.11", "", {}, "sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg=="],
+
+    "@fontsource/black-han-sans": ["@fontsource/black-han-sans@5.2.8", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@fontsource/black-han-sans/-/black-han-sans-5.2.8.tgz", {}, "sha512-zLh7RHapw0PhDA4KE/wyX3pOZK1yEJFbtQ1+L7KAIoPRgWETc+jZHLX87lDr45UFyLVAreEzpM1TXCieOJoH0w=="],
+
+    "@fontsource/noto-sans-kr": ["@fontsource/noto-sans-kr@5.2.9", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@fontsource/noto-sans-kr/-/noto-sans-kr-5.2.9.tgz", {}, "sha512-pbF8F0rUzKkDmnk/KYGAbxjgW4TrIHdFKnV6OQ+kUC9ELCn5utrAURcEgMqq3J9SRX+FvjOz+aBCmfcC8/r7cw=="],
 
     "@hookform/resolvers": ["@hookform/resolvers@5.2.2", "", { "dependencies": { "@standard-schema/utils": "^0.3.0" }, "peerDependencies": { "react-hook-form": "^7.55.0" } }, "sha512-A/IxlMLShx3KjV/HeTcTfaMxdwy690+L/ZADoeaTltLx+CVuzkeVIPuybK3jrRfw7YZnmdKsVVHAlEPIAEUNlA=="],
 
